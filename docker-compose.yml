@@ -9,9 +9,46 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/data            # database, footage, renders, exports, encrypted tokens
+    environment:
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/rolecall-events   # events -> n8n alerts workflow
     # Rendering is CPU-heavy; keep the rest of the homelab responsive.
     cpus: 4
     mem_limit: 6g
+
+  # Automation: n8n drives find VODs -> cut & edit -> post, and sends review / post-by-hand alerts.
+  # UI on http://<host>:5678 (create the n8n owner login on first visit). Workflows: n8n/workflows/.
+  # First start imports + publishes them: docker compose --profile setup run --rm n8n-import
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.48.6
+    container_name: rolecall-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - ROLECALL_URL=http://rolecall:8080
+      - ROLECALL_API_TOKEN=${ROLECALL_API_TOKEN:?set ROLECALL_API_TOKEN in .env}
+      - NOTIFY_WEBHOOK_URL=${NOTIFY_WEBHOOK_URL:-${NOTIFY_WEBHOOK:-}}
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - GENERIC_TIMEZONE=${TZ:-America/New_York}
+      - TZ=${TZ:-America/New_York}
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_SECURE_COOKIE=false            # plain http on the LAN/tailnet; remove behind HTTPS
+    volumes:
+      - ./n8n/data:/home/node/.n8n
+    depends_on: [rolecall]
+
+  n8n-import:
+    image: docker.n8n.io/n8nio/n8n:2.48.6
+    profiles: ["setup"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        n8n import:workflow --separate --input=/workflows &&
+        for id in RolecallAutopilt RolecallEventsAl RolecallDailyRpt; do n8n publish:workflow --id=$$id; done
+    volumes:
+      - ./n8n/data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
 
   # Optional: public HTTPS for Instagram media fetches + streamer pages, without opening ports.
   # Create a free Cloudflare Tunnel pointing at http://rolecall:8080, put its token in .env,

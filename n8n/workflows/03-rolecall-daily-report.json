@@ -161,6 +161,17 @@
         1200,
         -80
       ]
+    },
+    {
+      "parameters": {},
+      "id": "26fb1bc1-73c6-5afa-bf95-9c81e85417a6",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
     }
   ],
   "connections": {
@@ -202,6 +213,17 @@
         [
           {
             "node": "Alert channel set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Yesterday in numbers",
             "type": "main",
             "index": 0
           }

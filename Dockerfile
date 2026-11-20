@@ -1,8 +1,9 @@
 FROM python:3.12-slim
 
-# ffmpeg for cutting/rendering, espeak-ng only for the labeled demo, tini for clean shutdown.
+# ffmpeg for cutting/rendering, tesseract for the on-screen personal-info scan,
+# espeak-ng only for the labeled demo, tini for clean shutdown.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg espeak-ng fonts-dejavu-core tini ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg tesseract-ocr espeak-ng fonts-dejavu-core tini ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
