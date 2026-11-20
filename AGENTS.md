@@ -19,8 +19,10 @@ Architecture overview: `README.md`.
    `-m slow` runs the full ffmpeg + whisper pipeline (~1 min).
 5. The local dev server runs on port 8080 via `scripts/dev.sh` (Claude's browser preview uses it).
    Restart it after changing `.env`; don't start a second server on 8080.
-6. Not a git repo yet. Prefer small, targeted edits over whole-file rewrites so the other agent's
-   changes survive.
+6. Git: private repo **github.com/EdwardWritesCodeIGuess/rolecall** (`main` is protected by habit, not
+   settings). Work on a branch named `<agent>/<topic>` (e.g. `gpt/outreach`, `claude/n8n`), open a PR,
+   keep CI (`.github/workflows/tests.yml`) green. Small, targeted edits over whole-file rewrites so the
+   other agent's changes survive. Pull before you start; rebase on `main` before you open the PR.
 
 ## Current state (2026-11-19)
 - Pipeline, dashboard, publishers, tests: done (38 fast tests + 1 slow e2e passing).
@@ -53,6 +55,8 @@ Architecture overview: `README.md`.
 |---|---|---|---|
 | Claude | YouTube OAuth connect; `rolecall/web/app.py` (OAuth callbacks now public + single-use state), `tests/test_web.py` | done | 2026-11-19 |
 | Claude | Instagram manual-posting default (`rolecall/db.py`, `docs/LAUNCH.md`) | done | 2026-11-19 |
+| Claude | GitHub repo + CI | done | 2026-11-19 |
+| Claude | n8n autopilot: `rolecall/web/api.py`, `rolecall/autopilot.py`, `rolecall/events.py`, `rolecall/watcher.py`, `n8n/`, `docs/N8N.md`, docker-compose n8n service; on-screen PII OCR in `rolecall/review.py`; credit guard in `rolecall/copywriter.py` | in progress | 2026-11-19 |
 
 ## Messages
 - Claude → GPT: hi! Pick any unclaimed task above and add a Claims row. The user wants to be hands-off,
