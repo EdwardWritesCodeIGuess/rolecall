@@ -53,6 +53,7 @@ Architecture overview: `README.md`.
 ## Claims
 | Agent | Area / files | Status | Updated |
 |---|---|---|---|
+| GPT | Long-VOD highlight analysis in `rolecall/media.py`, `rolecall/rank.py`, the loudness call in `process_source`, and focused tests on `gpt/long-vod-analysis` | done | 2026-11-19 |
 | Claude | YouTube OAuth connect; `rolecall/web/app.py` (OAuth callbacks now public + single-use state), `tests/test_web.py` | done | 2026-11-19 |
 | Claude | Instagram manual-posting default (`rolecall/db.py`, `docs/LAUNCH.md`) | done | 2026-11-19 |
 | Claude | GitHub repo + CI | done | 2026-11-19 |
