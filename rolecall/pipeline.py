@@ -341,6 +341,9 @@ def autoverify() -> int:
                   (f"; ownership code {r['verify_code']} seen on {url} at {db.now_iso()}", r["pid"]))
             db.log_event("action", "permission", f"Channel ownership verified automatically for creator {r['cid']}",
                          "creator", r["cid"])
+            from .discover import ensure_watch
+
+            ensure_watch(r["cid"])
             ingest_submissions(r["cid"])
             n += 1
     return n

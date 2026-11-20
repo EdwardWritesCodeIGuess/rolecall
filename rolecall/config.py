@@ -48,6 +48,9 @@ class Config:
     instagram_app_secret: str = os.environ.get("INSTAGRAM_APP_SECRET", "")
     tiktok_client_key: str = os.environ.get("TIKTOK_CLIENT_KEY", "")
     tiktok_client_secret: str = os.environ.get("TIKTOK_CLIENT_SECRET", "")
+    # Twitch app (dev.twitch.tv, free) for GTA 6 stream discovery. Empty = YouTube discovery only.
+    twitch_client_id: str = os.environ.get("TWITCH_CLIENT_ID", "")
+    twitch_client_secret: str = os.environ.get("TWITCH_CLIENT_SECRET", "")
     # Compute cost estimate for cost-per-clip: homelab electricity + wear, USD per CPU-hour.
     compute_cost_per_hour: float = float(os.environ.get("COMPUTE_COST_PER_HOUR", "0.05"))
 

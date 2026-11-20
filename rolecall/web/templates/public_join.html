@@ -8,13 +8,14 @@
 </div>
 <form class="card" method="post" action="/p/join" enctype="multipart/form-data">
   <div style="position:absolute; left:-5000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  {% if prefill and prefill.ref %}<input type="hidden" name="ref" value="{{ prefill.ref }}">{% endif %}
   <div class="row">
-    <div><label>Streamer name *</label><input name="display_name" required maxlength="80"></div>
+    <div><label>Streamer name *</label><input name="display_name" required maxlength="80" value="{{ prefill.name if prefill else '' }}"></div>
     <div><label>Email *</label><input name="email" type="email" required></div>
   </div>
-  <label>Main channel URL *</label><input name="channel_url" required placeholder="https://www.twitch.tv/yourname">
+  <label>Main channel URL *</label><input name="channel_url" required placeholder="https://www.twitch.tv/yourname" value="{{ prefill.channel if prefill else '' }}">
   <label>Other channels we may clip from (one per line)</label><textarea name="other_channels" rows="2" placeholder="https://kick.com/yourname"></textarea>
-  <label>How should we credit you?</label><input name="credit_format" placeholder="twitch.tv/yourname">
+  <label>How should we credit you?</label><input name="credit_format" placeholder="twitch.tv/yourname" value="{{ prefill.credit if prefill else '' }}">
 
   <label>Where can we post your clips?</label>
   <div class="row">{% for p in platforms %}<label class="cb"><input type="checkbox" name="p_{{ p }}" checked> {{ {'youtube':'YouTube Shorts','instagram':'Instagram Reels','tiktok':'TikTok'}[p] }}</label>{% endfor %}</div>

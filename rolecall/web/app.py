@@ -417,6 +417,9 @@ def permission_action(request: Request, pid: int, action: str):
         raise HTTPException(404)
     if action == "verify":
         db.ex("UPDATE permissions SET verified=1, status='active' WHERE id=?", (pid,))
+        from .. import discover
+
+        discover.ensure_watch(p["creator_id"])
         _ingest_pending_submissions(p["creator_id"])
     elif action == "revoke":
         db.ex("UPDATE permissions SET status='revoked', revoked_at=? WHERE id=?", (db.now_iso(), pid))
@@ -506,6 +509,41 @@ async def metrics_manual(request: Request):
 
 
 # ------------------------------------------------------------------ leads + requests + events
+@admin.get("/prospects", response_class=HTMLResponse)
+def prospects(request: Request, status: str = "new"):
+    from .. import discover
+
+    where, args = ("WHERE status=?", (status,)) if status != "all" else ("", ())
+    rows = [discover.summary(p) for p in db.q(f"SELECT * FROM prospects {where} ORDER BY score DESC, last_seen DESC "
+                                              "LIMIT 200", args)]
+    counts = {r["status"]: r["n"] for r in db.q("SELECT status, COUNT(*) n FROM prospects GROUP BY status")}
+    cfg = get_config()
+    return render(request, "prospects.html", prospects=rows, status=status, counts=counts,
+                  public_ok=bool(cfg.public_base_url), twitch_ok=bool(cfg.twitch_client_id and cfg.twitch_client_secret),
+                  youtube_ok=get_publisher("youtube").connected()[0])
+
+
+@admin.post("/prospects/run")
+def prospects_run(request: Request):
+    from .. import autopilot
+
+    try:
+        autopilot.start("discover", by="dashboard")
+    except autopilot.Busy:
+        pass
+    return back(request, "/prospects")
+
+
+@admin.post("/prospects/{pid}/{action}")
+def prospect_action(request: Request, pid: int, action: str):
+    from .. import discover
+
+    if action not in ("invited", "ignored", "declined", "new"):
+        raise HTTPException(400)
+    discover.mark(pid, action)
+    return back(request, "/prospects")
+
+
 @admin.get("/leads", response_class=HTMLResponse)
 def leads(request: Request):
     return render(request, "leads.html", leads=db.q("SELECT * FROM leads ORDER BY id DESC"),
@@ -653,8 +691,13 @@ def rate_limited(request: Request, key: str, per_hour: int = 6) -> bool:
 
 
 @public.get("/p/join", response_class=HTMLResponse)
-def join_form(request: Request):
-    return render(request, "public_join.html", platforms=PLATFORMS)
+def join_form(request: Request, ref: str = ""):
+    from .. import discover
+
+    p = discover.by_token(ref)
+    prefill = {"ref": ref, "name": p["name"], "channel": p["url"],
+               "credit": p["url"].split("://", 1)[-1].removeprefix("www.")} if p else {}
+    return render(request, "public_join.html", platforms=PLATFORMS, prefill=prefill)
 
 
 @public.post("/p/join", response_class=HTMLResponse)
@@ -709,6 +752,10 @@ async def join_submit(request: Request):
     if consent["want_service"]:
         db.ex("INSERT INTO leads(name, email, channel_url, message, package) VALUES(?,?,?,?,?)",
               (name, str(form["email"])[:200], channel, "Interested via the join form", "unknown"))
+    if form.get("ref"):
+        from .. import discover
+
+        discover.link_join(str(form["ref"])[:40], cid)
     db.log_event("action", "join", f"New streamer permission from {name} ({channel}); code {code}", "creator", cid)
     return render(request, "public_message.html", title="Thanks! One last step",
                   message=f"To prove the channel is yours, add the code {code} anywhere in your channel bio / About "
