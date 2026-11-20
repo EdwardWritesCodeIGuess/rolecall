@@ -187,8 +187,7 @@ def process_source(source_id: int) -> list[int]:
             tr = transcribe(src["path"])
             db.ex("INSERT OR REPLACE INTO transcripts(source_id, model, language, data) VALUES(?,?,?,?)",
                   (source_id, get_config().whisper_model, tr.get("language"), json.dumps(tr)))
-        audio = media.load_audio(src["path"])
-        loud = media.loudness_curve(audio)
+        loud = media.file_loudness_curve(src["path"])
         formats = [f for f in (db.get_setting("formats") or ["punch", "story"]) if f in FORMATS]
         moments = find_moments(tr, loud, src["duration"], formats)
         db.ex("DELETE FROM moments WHERE source_id=? AND status='candidate'", (source_id,))

@@ -8,6 +8,7 @@ speech coverage. Optionally reranked by an LLM (see copywriter.rerank) when one 
 from __future__ import annotations
 
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -106,9 +107,11 @@ def find_moments(transcript: dict, loud_db: np.ndarray, duration: float,
     cue, laugh, speech = _cue_curve(transcript, n)
     cue_s = _smooth(cue, 8)  # ~2s window
     intensity = 0.6 * np.clip(zl, -3, 6) + 1.2 * cue_s
-    segs = [s for s in transcript.get("segments", []) if s.get("words")]
-    seg_starts = np.array([s["start"] for s in segs]) if segs else np.array([])
-    seg_ends = np.array([s["end"] for s in segs]) if segs else np.array([])
+    segs = sorted((s for s in transcript.get("segments", []) if s.get("words")), key=lambda s: s["start"])
+    seg_starts = [s["start"] for s in segs]
+    # Overlapping sentences can finish out of order. Keep the end index independent.
+    seg_ends = sorted(s["end"] for s in segs)
+    rp_starts = [s["start"] for s in segs if RP.search(s["text"])]
 
     # payoff candidates: local maxima of intensity, suppressed within 8s
     order = np.argsort(-intensity)
@@ -119,11 +122,12 @@ def find_moments(transcript: dict, loud_db: np.ndarray, duration: float,
         if all(abs(i - p) * HOP > 8 for p in peaks):
             peaks.append(int(i))
 
-    def window_scores(s: float, e: float, peak_t: float) -> tuple[float, float, float, list[str]]:
+    def window_scores(s: float, e: float, peak_t: float) -> tuple[float, float, float, list[str], float]:
         i0, i1 = int(s / HOP), max(int(s / HOP) + 1, int(e / HOP))
         reasons = []
         hook_slice = intensity[i0:i0 + int(3 / HOP)]
-        first_word = next((float(w) for w in seg_starts if w >= s - 0.05), e)
+        first = bisect_left(seg_starts, s - 0.05)
+        first_word = seg_starts[first] if first < len(segs) else e
         silent_open = first_word - s
         hook_raw = float(np.mean(hook_slice)) if len(hook_slice) else 0.0
         hook_raw += 0.8 * float(cue[i0:i0 + int(3 / HOP)].sum() > 0)
@@ -137,7 +141,7 @@ def find_moments(transcript: dict, loud_db: np.ndarray, duration: float,
         lively = (speech[i0:i1] > 0) | (zl[i0:i1] > 1.0)
         gaps = np.diff(np.flatnonzero(np.r_[1, lively, 1]))
         dead = float(gaps.max() * HOP) if len(gaps) else 0.0
-        starts_clean = bool(len(seg_starts) and np.min(np.abs(seg_starts - s)) < 0.15)
+        starts_clean = any(abs(start - s) < 0.15 for start in seg_starts[max(0, first - 1):first + 1])
         context_raw = 3.0 * (cover - 0.45) + (0.6 if starts_clean else -0.4) - 0.5 * max(0.0, dead - 3.0)
         if dead > 4:
             reasons.append(f"{dead:.0f}s dead air")
@@ -149,14 +153,16 @@ def find_moments(transcript: dict, loud_db: np.ndarray, duration: float,
         if laugh[tail0:min(i1 + int(3 / HOP), n)].sum() > 0:
             payoff_raw += 1.0
             reasons.append("laughter at the end")
-        if RP.search(" ".join(s2["text"] for s2 in segs if s <= s2["start"] < e)):
+        rp = bisect_left(rp_starts, s)
+        if rp < len(rp_starts) and rp_starts[rp] < e:
             reasons.append("RP scenario")
         if peak_t - s < (e - s) * 0.45:
             payoff_raw -= 0.8  # peak too early: the clip drags after the punchline
         # ending: reward landing on a laugh or a natural pause, punish cutting someone off
-        nxt = seg_starts[seg_starts > e - 0.05] if len(seg_starts) else np.array([])
-        gap_after = float(nxt[0] - e) if len(nxt) else 5.0
-        end_seg = next((s2 for s2 in reversed(segs) if s2["end"] <= e + 0.05), None)
+        nxt = bisect_right(seg_starts, e - 0.05)
+        gap_after = seg_starts[nxt] - e if nxt < len(segs) else 5.0
+        last = bisect_right(seg_starts, e + 0.05) - 1
+        end_seg = next((segs[i] for i in range(last, -1, -1) if segs[i]["end"] <= e + 0.05), None)
         if end_seg and LAUGH.search(end_seg["text"]):
             payoff_raw += 0.6
         if gap_after < 0.3:
@@ -175,13 +181,15 @@ def find_moments(transcript: dict, loud_db: np.ndarray, duration: float,
         for p in peaks:
             pt = p * HOP
             # end options: sentence ends 1-14s after the peak, so the reaction and punchline land
-            ends = [min(duration, pt + 2.0)]
-            if len(seg_ends):
-                ends = [min(duration, float(x) + 0.35) for x in seg_ends if pt + 1.0 <= x <= pt + 14.0][:6] or ends
+            first_end = bisect_left(seg_ends, pt + 1.0)
+            stop_end = min(first_end + 6, bisect_right(seg_ends, pt + 14.0))
+            ends = [min(duration, x + 0.35) for x in seg_ends[first_end:stop_end]] or [min(duration, pt + 2.0)]
             best = None
             for e in ends:
                 # start options: sentence starts within the format range
-                options = [float(x) - 0.1 for x in seg_starts if lo <= e - x <= hi] if len(seg_starts) else []
+                first_start = bisect_left(seg_starts, e - hi)
+                stop_start = bisect_right(seg_starts, e - lo)
+                options = [x - 0.1 for x in seg_starts[first_start:stop_start]]
                 if not options:
                     options = [max(0.0, e - target)]
                 for s in options:

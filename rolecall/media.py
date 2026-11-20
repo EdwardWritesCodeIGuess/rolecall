@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -59,15 +60,18 @@ def sha256_file(path: str | Path, limit_mb: int = 64) -> str:
     return h.hexdigest()
 
 
-def load_audio(path: str | Path, sr: int = 16000, start: float | None = None, duration: float | None = None) -> np.ndarray:
+def _audio_command(path: str | Path, sr: int, start: float | None = None, duration: float | None = None) -> list[str]:
     cmd = [FFMPEG, "-nostdin", "-v", "error"]
     if start is not None:
         cmd += ["-ss", f"{start:.3f}"]
     cmd += ["-i", str(path)]
     if duration is not None:
         cmd += ["-t", f"{duration:.3f}"]
-    cmd += ["-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"]
-    out = run(cmd).stdout
+    return cmd + ["-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"]
+
+
+def load_audio(path: str | Path, sr: int = 16000, start: float | None = None, duration: float | None = None) -> np.ndarray:
+    out = run(_audio_command(path, sr, start, duration)).stdout
     return np.frombuffer(out, dtype=np.float32).copy()
 
 
@@ -80,6 +84,33 @@ def loudness_curve(audio: np.ndarray, sr: int = 16000, hop: float = 0.25) -> np.
     a = audio[: frames * n].reshape(frames, n)
     rms = np.sqrt(np.mean(a * a, axis=1) + 1e-12)
     return 20 * np.log10(rms + 1e-9)
+
+
+def file_loudness_curve(path: str | Path, sr: int = 16000, hop: float = 0.25) -> np.ndarray:
+    """Decode once, retaining only RMS values and a fixed batch of PCM windows."""
+    samples_per_hop = int(sr * hop)
+    if samples_per_hop < 1:
+        raise ValueError("A loudness window must contain at least one sample")
+    bytes_per_hop = samples_per_hop * np.dtype("<f4").itemsize
+    batches = []
+    # Let FFmpeg write diagnostics independently while we drain the buffered stdout pipe.
+    with tempfile.TemporaryFile() as errors, subprocess.Popen(
+        _audio_command(path, sr), stdout=subprocess.PIPE, stderr=errors,
+    ) as proc:
+        assert proc.stdout is not None
+        try:
+            while block := proc.stdout.read(128 * bytes_per_hop):
+                if len(block) >= bytes_per_hop:
+                    samples = np.frombuffer(block, dtype="<f4")
+                    batches.append(loudness_curve(samples, sr, hop))
+        except BaseException:
+            proc.kill()
+            raise
+        if proc.wait():
+            errors.seek(max(0, errors.tell() - 1500))
+            detail = errors.read().decode(errors="replace")
+            raise MediaError(f"ffmpeg failed ({proc.returncode}): {detail}")
+    return np.concatenate(batches) if batches else np.array([-90.0])
 
 
 def spectral_flatness_curve(audio: np.ndarray, sr: int = 16000, hop: float = 0.5) -> np.ndarray:
