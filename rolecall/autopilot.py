@@ -4,6 +4,7 @@ Stages
   watch    find new finished VODs on authorized channels + scan the inbox folder, ingest them
   process  cut & edit the next new source: transcribe, find moments, 9:16 render, checks, copy
   publish  post whatever is approved and due (caps, spacing, posting window, retries)
+  discover find GTA 6 streamers to invite (never clips them; they opt in first)
 
 watch and process share one "heavy" lock so the machine never transcodes two things at once;
 publish has its own lock, so posting keeps going while a long VOD is being processed.
@@ -21,9 +22,9 @@ import uuid
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 
-from . import db, events, pipeline, watcher
+from . import db, discover, events, pipeline, watcher
 
-_locks = {"heavy": threading.Lock(), "publish": threading.Lock()}
+_locks = {"heavy": threading.Lock(), "publish": threading.Lock(), "discover": threading.Lock()}
 _running: dict[str, dict] = {}
 _jobs: OrderedDict[str, dict] = OrderedDict()
 _jobs_guard = threading.Lock()
@@ -65,7 +66,14 @@ def stage_publish(**_) -> dict:
     return {"posts": scheduler.publish_due()}
 
 
-STAGES = {"watch": (stage_watch, "heavy"), "process": (stage_process, "heavy"), "publish": (stage_publish, "publish")}
+def stage_discover(**_) -> dict:
+    if not db.get_setting("discover_enabled"):
+        return {"skipped": "discover_enabled is off"}
+    return discover.discover()
+
+
+STAGES = {"watch": (stage_watch, "heavy"), "process": (stage_process, "heavy"), "publish": (stage_publish, "publish"),
+          "discover": (stage_discover, "discover")}
 
 
 # ------------------------------------------------------------------ jobs

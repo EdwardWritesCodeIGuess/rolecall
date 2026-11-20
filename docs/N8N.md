@@ -17,7 +17,31 @@ Rolecall → n8n "Events → alerts" (webhook /webhook/rolecall-events)
   post.published / post.failed / job.failed / source.ingested / clip.ready
 
 n8n "Daily report" (9:00)   GET /api/v1/report + /api/v1/targets → summary to your alert channel
+
+n8n "Find GTA 6 streamers" (every 3 h)
+  POST /api/v1/run/discover  search YouTube (and Twitch, once keys are set) for live + recent GTA 6
+                             streams, rank the streamers, alert about the best new ones with an invite
 ```
+
+## Finding streamers (GTA 6)
+
+Discovery finds streamers; it never clips them. The funnel:
+
+1. **Found**: YouTube Data API search (`discover_youtube_query`, live + last 48 h, ~200 quota units per run,
+   the daily quota is 10,000 and one upload costs 1,600) and Twitch's "Grand Theft Auto VI" category
+   (`TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET`, free app at dev.twitch.tv). Ranked 0-1 by fit: mid-size
+   (~800 live viewers is the sweet spot), seen on several days, your language (`discover_languages`),
+   gameplay rather than trailer reactions or news.
+2. **Invited**: the dashboard's *Find streamers* page and the n8n alert give a personal invite per streamer
+   (`invite_template`) with a `/p/join?ref=...` link that prefills the sign-up form. Someone sends it on the
+   streamer's socials and marks it *invited*. Rolecall doesn't send messages itself.
+3. **Joined**: the streamer signs up; the prospect links to the new creator.
+4. **Automatic**: once the ownership code shows on their channel (auto-checked every 30 min) or you press
+   Verify, the stream watcher turns on for their channel, and their streams flow through
+   find → cut & edit → review → post with no further steps.
+
+Invite links need `PUBLIC_BASE_URL` (Tailscale Funnel / Cloudflare Tunnel); without it they point at
+localhost and the page says so.
 
 ## Where it posts
 
@@ -88,7 +112,7 @@ All calls need `Authorization: Bearer $ROLECALL_API_TOKEN`.
 | `GET /api/v1/status` | paused?, driver, platform readiness, queue counts, running stages |
 | `GET /api/v1/targets` | where to post (see above) |
 | `GET /api/v1/creators` | authorized streamers, channels, credit lines, permission scope |
-| `POST /api/v1/run/{watch,process,publish}?wait=N` | run a stage; `wait` blocks up to N seconds for the result |
+| `POST /api/v1/run/{watch,process,publish,discover}?wait=N` | run a stage; `wait` blocks up to N seconds for the result |
 | `GET /api/v1/jobs/{id}` | stage result if you didn't wait |
 | `GET /api/v1/clips?status=needs_review` | clips with flags, copy, links |
 | `POST /api/v1/clips/{id}/approve` / `reject` | review from automation (approve accepts `{"overrides": {"youtube.title": "..."}}`) |
@@ -96,6 +120,8 @@ All calls need `Authorization: Bearer $ROLECALL_API_TOKEN`.
 | `POST /api/v1/posts/{id}/posted` `{"url": "https://..."}` | record a manual post |
 | `POST /api/v1/pause` `{"paused": true, "platform": "youtube"}` | kill switch (platform optional) |
 | `GET /api/v1/report?days=1` | numbers for reports |
+| `GET /api/v1/prospects?status=new` | streamers found by discovery, with invite text + link |
+| `POST /api/v1/prospects/{id}/{invited,ignored,declined,new}` | move a prospect through the funnel |
 
 Events are POSTed as JSON with `X-Rolecall-Signature: sha256=<HMAC of the body with the API token>`.
 

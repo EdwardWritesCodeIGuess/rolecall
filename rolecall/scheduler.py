@@ -189,6 +189,8 @@ def tick() -> None:
         autopilot.run_inline("publish")
         if _due("watch", int(db.get_setting("watch_every_minutes") or 60) * 60):
             autopilot.run_inline("watch")
+        if db.get_setting("discover_enabled") and _due("discover", int(db.get_setting("discover_every_minutes") or 180) * 60):
+            autopilot.run_inline("discover")
     if _due("metrics", 6 * 3600):
         refresh_metrics()
     if _due("ig_refresh", 24 * 3600):

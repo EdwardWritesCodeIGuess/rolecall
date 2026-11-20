@@ -22,7 +22,7 @@ if [ ! -x "$N8N" ]; then
 fi
 if [ "$1" = "--reimport" ] || [ ! -f n8n/data/.rolecall-imported ]; then
   "$N8N" import:workflow --separate --input=n8n/workflows
-  for id in RolecallAutopilt RolecallEventsAl RolecallDailyRpt; do "$N8N" publish:workflow --id="$id"; done
+  for id in RolecallAutopilt RolecallEventsAl RolecallDailyRpt RolecallDiscover; do "$N8N" publish:workflow --id="$id"; done
   touch n8n/data/.rolecall-imported
 fi
 exec "$N8N" start

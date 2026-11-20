@@ -1,0 +1,140 @@
+{
+  "id": "RolecallDiscover",
+  "name": "Rolecall · Find GTA 6 streamers to invite",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
+          ]
+        }
+      },
+      "id": "2f3e8d95-a372-5c46-a3d9-3d49269accf7",
+      "name": "Every 3 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/run/discover",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 360000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "300"
+            }
+          ]
+        }
+      },
+      "id": "9be7ccc3-70fc-5b6c-9085-917490553e6c",
+      "name": "Search for GTA 6 streams",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "notes": "YouTube live + recent streams (Twitch too once its app keys are set). Ranks streamers to invite.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst d = $('Search for GTA 6 streams').first().json;\nconst r = d.result || {};\nreturn [{ json: { status: d.status, streams_found: r.found, new_streamers: r.new, by_source: r.sources,\n  notes: r.notes, alerted: (r.top_new || []).map(p => `${p.name} (${p.platform}, fit ${p.score})`) } }];\n"
+      },
+      "id": "155370b9-a56f-5976-8016-aac846828a8f",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "26fb1bc1-73c6-5afa-bf95-9c81e85417a6",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 3 hours": {
+      "main": [
+        [
+          {
+            "node": "Search for GTA 6 streams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search for GTA 6 streams": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Search for GTA 6 streams",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

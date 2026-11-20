@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Find streamers</h1>
+<p class="muted">GTA 6 streamers found automatically on {{ 'YouTube' if youtube_ok else '' }}{{ ' and ' if youtube_ok and twitch_ok }}{{ 'Twitch' if twitch_ok else '' }}{{ 'no source yet' if not (youtube_ok or twitch_ok) }},
+ranked by fit (mid-size, streams GTA 6 often, your language). Nothing here is clipped. Send the invite; once they sign up and the
+code shows on their channel, the stream watcher turns on for them and their clips flow through review and posting automatically.</p>
+
+{% if not public_ok %}
+<div class="card" style="border-left:4px solid #d97706; margin-bottom:14px">
+  <b>Invite links point at this computer.</b> Set <code>PUBLIC_BASE_URL</code> (Tailscale Funnel or Cloudflare Tunnel) so streamers can open
+  <code>/p/join</code>. Until then the links below only work for you.
+</div>
+{% endif %}
+{% if not twitch_ok %}
+<p class="small muted">Twitch is off: add <code>TWITCH_CLIENT_ID</code> / <code>TWITCH_CLIENT_SECRET</code> from a free app at dev.twitch.tv to search the "Grand Theft Auto VI" category too.</p>
+{% endif %}
+
+<div class="row" style="margin-bottom:14px; flex-wrap:wrap">
+  {% for s, label in [('new','New'),('invited','Invited'),('joined','Joined'),('ignored','Ignored'),('declined','Declined'),('all','All')] %}
+  <a class="btn {{ 'primary' if status == s }}" style="flex:0" href="/prospects?status={{ s }}">{{ label }}{% if s != 'all' %} ({{ counts.get(s, 0) }}){% endif %}</a>
+  {% endfor %}
+  <form method="post" action="/prospects/run" style="margin-left:auto"><input type="hidden" name="csrf" value="{{ csrf() }}">
+    <button class="btn">Search now</button></form>
+</div>
+
+<div class="card table-wrap">
+<table>
+  <tr><th>Streamer</th><th>Peak viewers</th><th>Followers</th><th>Days seen</th><th>Latest stream</th><th>Fit</th><th>Invite</th><th></th></tr>
+  {% for p in prospects %}
+  <tr>
+    <td><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.name or p.handle }}</a><div class="small muted">{{ p.platform }}{% if p.language %} · {{ p.language }}{% endif %}</div></td>
+    <td>{{ p.peak_viewers|num }}</td><td>{{ p.followers|num }}</td><td>{{ p.days_seen }}</td>
+    <td class="small">{% if p.last_stream_url %}<a href="{{ p.last_stream_url }}" target="_blank" rel="noopener">{{ (p.last_title or '')[:70] }}</a>{% endif %}</td>
+    <td>{{ '%.2f'|format(p.score) }}</td>
+    <td class="small" style="max-width:340px">
+      <textarea readonly rows="3" style="width:100%; font-size:12px" id="inv{{ p.id }}">{{ p.invite_text }}</textarea>
+      <button class="btn" type="button" style="flex:0" onclick="navigator.clipboard.writeText(document.getElementById('inv{{ p.id }}').value); this.textContent='Copied'">Copy</button>
+    </td>
+    <td class="small">
+      {% for a, label in [('invited','Mark invited'),('ignored','Ignore'),('declined','Declined'),('new','Reset')] if a != p.status and p.status != 'joined' %}
+      <form method="post" action="/prospects/{{ p.id }}/{{ a }}" style="margin:2px 0"><input type="hidden" name="csrf" value="{{ csrf() }}">
+        <button class="btn" style="flex:0">{{ label }}</button></form>
+      {% endfor %}
+      {% if p.creator_id %}<a href="/creators/{{ p.creator_id }}">Streamer page</a>{% endif %}
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="8" class="muted">Nothing here yet. Discovery runs every 3 hours (or press Search now).</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}

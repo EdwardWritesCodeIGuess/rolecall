@@ -66,6 +66,7 @@ permission. Two things are missing:
 | n8n autopilot + stream watcher + API | Done 2026-11-19 (Claude), merged in PR #1 |
 | Live-stream recording (clip during the stream, not after) | Not started. Today the watcher waits for the finished VOD |
 | Twitch chat/viewer-clip signals for moment ranking | Not started. Needs a Twitch dev app (user) |
+| GTA 6 discovery → invite → opt-in → automatic | Done 2026-11-19 (Claude). Live run found 49 GTA 6 streams / 40 streamers on YouTube (GTA 6 launched). Twitch waits on the user's dev app keys; invites wait on PUBLIC_BASE_URL |
 | ~~Meta developer app + Instagram token~~ | Dropped: user posts Instagram by hand |
 | Public HTTPS (Tailscale Funnel on homelab) | Then fill Google Branding + publish OAuth app to production |
 | Deploy to homelab with docker compose | Blocked on SSH user/key |
@@ -80,7 +81,7 @@ permission. Two things are missing:
 | Claude | Instagram manual-posting default (`rolecall/db.py`, `docs/LAUNCH.md`) | done | 2026-11-19 |
 | Claude | GitHub repo + CI | done | 2026-11-19 |
 | Claude | n8n autopilot: `rolecall/web/api.py`, `rolecall/autopilot.py`, `rolecall/events.py`, `rolecall/watcher.py`, `n8n/`, `docs/N8N.md`, docker-compose n8n service; on-screen PII OCR in `rolecall/review.py`; credit guard in `rolecall/copywriter.py` | merged (PR #1) | 2026-11-19 |
-| Claude | GTA 6 discovery on `claude/gta6-discovery`: new `rolecall/discover.py`, `prospects` table + `discover_*` settings in `rolecall/db.py`, discover stage in `autopilot.py`/`scheduler.py`, `/prospects` page + `/p/join?ref=` in `rolecall/web/app.py` + templates, prospects endpoints in `web/api.py`, auto watch_url on verify in `pipeline.autoverify`, n8n workflow 04 + events/report tweaks | in progress | 2026-11-19 |
+| Claude | GTA 6 discovery on `claude/gta6-discovery`: new `rolecall/discover.py`, `prospects` table + `discover_*` settings in `rolecall/db.py`, discover stage in `autopilot.py`/`scheduler.py`, `/prospects` page + `/p/join?ref=` in `rolecall/web/app.py` + templates, prospects endpoints in `web/api.py`, auto watch_url on verify in `pipeline.autoverify`, n8n workflow 04 + events/report tweaks | done (PR open) | 2026-11-19 |
 
 ## Messages
 - GPT → Claude: [PR #2](https://github.com/EdwardWritesCodeIGuess/rolecall/pull/2) completes long-VOD analysis. The only pipeline change is the loudness call in `process_source`.

@@ -191,6 +191,24 @@ CREATE TABLE IF NOT EXISTS watch_seen (       -- VODs the stream watcher has loo
   seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS prospects (        -- streamers found by discovery, to invite (never clipped as-is)
+  id INTEGER PRIMARY KEY,
+  platform TEXT NOT NULL,                    -- youtube|twitch
+  channel_id TEXT NOT NULL,
+  handle TEXT, name TEXT, url TEXT,
+  last_title TEXT, last_stream_url TEXT, language TEXT,
+  peak_viewers INTEGER, followers INTEGER,
+  seen_count INTEGER NOT NULL DEFAULT 0,
+  seen_days TEXT NOT NULL DEFAULT '[]',      -- JSON list of UTC dates seen streaming the game
+  first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TEXT,
+  score REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new',        -- new|invited|joined|ignored|declined
+  invite_token TEXT UNIQUE,                  -- /p/join?ref=<token>
+  creator_id INTEGER REFERENCES creators(id),
+  notified INTEGER NOT NULL DEFAULT 0, invited_at TEXT, notes TEXT,
+  UNIQUE(platform, channel_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status, platform);
 CREATE INDEX IF NOT EXISTS idx_clips_review ON clips(review_status);
 CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status);
@@ -225,6 +243,17 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "watch_max_age_days": 14,              # ignore older VODs
     "watch_per_run": 1,                    # new VODs ingested per channel per run (keeps CPU/disk bounded)
     "ocr_enabled": True,                   # scan rendered frames for on-screen personal info (needs tesseract)
+    # Discovery: find GTA 6 streamers to invite (they opt in at /p/join before anything is clipped)
+    "discover_enabled": True,
+    "discover_every_minutes": 180,         # built-in worker cadence; n8n workflow 04 uses its own schedule
+    "discover_youtube_query": "GTA 6|GTA VI|Grand Theft Auto VI",
+    "discover_twitch_games": ["Grand Theft Auto VI"],
+    "discover_languages": ["en"],
+    "discover_min_score": 0.5,             # alert only about prospects at or above this fit score
+    "discover_notify_top": 5,
+    "invite_template": ("Hey {name}! Caught your GTA 6 stream (\"{title}\"). I run {brand} (@{handle}): we turn "
+                        "streams into Shorts and Reels with your name credited on every clip, free for you. "
+                        "Want in? Takes a minute: {link} . You can pull any clip anytime."),
 }
 
 _local = threading.local()

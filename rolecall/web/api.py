@@ -3,7 +3,7 @@
 GET  /api/v1/status                 pause state, who is driving, per-platform readiness, queue counts
 GET  /api/v1/targets                where to post: brand accounts, modes, limits, posting window
 GET  /api/v1/creators               authorized streamers, their channels, credit lines, permissions
-POST /api/v1/run/{stage}            watch | process | publish  (?wait=<seconds> to block for the result)
+POST /api/v1/run/{stage}            watch | process | publish | discover  (?wait=<seconds> to block for the result)
 GET  /api/v1/jobs/{id}              a stage run's status/result
 GET  /api/v1/clips?status=...       clips with flags, copy and review links
 GET  /api/v1/clips/{id}
@@ -13,6 +13,8 @@ GET  /api/v1/posts?status=...       e.g. export_ready = waiting to be posted by 
 POST /api/v1/posts/{id}/posted      JSON {"url": "https://..."} after a manual post
 POST /api/v1/pause                  JSON {"paused": true|false, "platform": optional}
 GET  /api/v1/report?days=1          daily/weekly numbers for the report workflow
+GET  /api/v1/prospects?status=new   GTA 6 streamers found by discovery, with invite text + link
+POST /api/v1/prospects/{id}/{status} invited | ignored | declined | new
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from .. import autopilot, db, events, pipeline, review, scheduler, security, stats
+from .. import autopilot, db, discover, events, pipeline, review, scheduler, security, stats
 from ..config import get_config
 from ..publishers import PLATFORMS, get_publisher
 
@@ -114,7 +116,7 @@ def run_stage(stage: str, wait: int = 0, creator: str | None = None, source_id: 
     if stage not in autopilot.STAGES:
         raise HTTPException(404, f"Unknown stage '{stage}'. Use one of: {', '.join(autopilot.STAGES)}")
     autopilot.note_orchestrator_call()
-    if db.get_setting("paused") and stage != "publish":
+    if db.get_setting("paused") and stage in ("watch", "process"):
         # publish handles pause itself (in-flight uploads stop too); watch/process just wait
         return {"status": "paused", "stage": stage, "message": "Rolecall is paused"}
     kw = {"creator": creator} if stage == "watch" else {"source_id": source_id} if stage == "process" else {}
@@ -225,6 +227,30 @@ def report(days: int = 1) -> dict:
         "followers": k["followers"], "views_total": k["views"],
         "revenue_month": k["revenue_month"], "cost_month": k["cost_month"], "cost_per_clip": k["cost_per_clip"],
         "leads_new": k["leads_new"], "clients": k["clients"],
+        "prospects": {r["status"]: r["n"] for r in db.q("SELECT status, COUNT(*) n FROM prospects GROUP BY status")},
+        "prospects_found": one("SELECT COUNT(*) FROM prospects WHERE first_seen>=?", since),
         "top": top, "driver": autopilot.driver(), "paused": bool(db.get_setting("paused")),
         "dashboard": get_config().base_url,
     }
+
+
+# ------------------------------------------------------------------ discovery
+@api.get("/prospects")
+def prospects(status: str = "new", limit: int = 20, min_score: float = 0) -> list[dict]:
+    where, args = ("WHERE score>=?", [min_score])
+    if status != "all":
+        where += " AND status=?"
+        args.append(status)
+    rows = db.q(f"SELECT * FROM prospects {where} ORDER BY score DESC, last_seen DESC LIMIT ?",
+                tuple(args) + (max(1, min(limit, 100)),))
+    return [discover.summary(r) for r in rows]
+
+
+@api.post("/prospects/{pid}/{status}")
+def prospect_status(pid: int, status: str) -> dict:
+    if status not in ("invited", "ignored", "declined", "new"):
+        raise HTTPException(422, "status must be invited, ignored, declined or new")
+    if not db.q1("SELECT 1 FROM prospects WHERE id=?", (pid,)):
+        raise HTTPException(404)
+    discover.mark(pid, status)
+    return discover.summary(db.q1("SELECT * FROM prospects WHERE id=?", (pid,)))

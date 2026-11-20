@@ -15,6 +15,7 @@ Then open `http://<host>:8080` and sign in as `admin` with the `ADMIN_PASSWORD` 
 ## Pipeline
 
 ```
+discovery (GTA 6 streams on YouTube/Twitch) → invite → streamer opts in at /p/join → ownership auto-verified
 footage (stream watcher: new finished VODs on authorized channels / upload / drop folder / URL / submission)
   → permission check (channel covered? verified? edit+repost+monetize?)
   → transcribe (faster-whisper, local, word timestamps)
@@ -41,9 +42,10 @@ footage (stream watcher: new finished VODs on authorized channels / upload / dro
 | `rolecall/publishers/` | YouTube, Instagram, TikTok |
 | `rolecall/scheduler.py` | background worker (covers watch/process/publish when n8n isn't driving) |
 | `rolecall/watcher.py` | stream watcher: new, finished VODs from verified channels |
+| `rolecall/discover.py` | GTA 6 discovery: finds and ranks streamers to invite (opt-in before any clipping) |
 | `rolecall/autopilot.py` | stage runner (watch / process / publish) shared by n8n and the worker |
 | `rolecall/web/api.py`, `rolecall/events.py` | bearer-token API for n8n + signed event webhooks to it |
-| `n8n/workflows/` | Autopilot, Events → alerts, Daily report (import with `scripts/n8n.sh`) |
+| `n8n/workflows/` | Autopilot, Events → alerts, Daily report, Find GTA 6 streamers (import with `scripts/n8n.sh`) |
 | `rolecall/web/` | dashboard + public pages (`/p/join`, `/p/pricing`, `/p/remove`, `/p/privacy`, `/p/terms`, `/d/<token>`) |
 | `data/` | SQLite DB, footage, renders, exports (Docker volume) |
 
