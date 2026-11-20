@@ -46,6 +46,19 @@ Architecture overview: `README.md`.
   `.env` has `ROLECALL_API_TOKEN` + `N8N_WEBHOOK_URL`; `NOTIFY_WEBHOOK` still empty → alerts only
   show in n8n's execution log until the user adds a Discord/Slack/ntfy URL.
 
+## Product direction (from the user, 2026-11-19)
+The user wants it hands-off: **automatically find GTA 6 streams → clip the best moments → n8n edits and
+posts them to the brand accounts** (YouTube Shorts automatic; Instagram by hand until the API is set up).
+Today the stream watcher only watches channels listed by hand, and only for streamers with a verified
+permission. Two things are missing:
+1. **Discovery**: search live and recent GTA 6 streams automatically (YouTube Data API search works with the
+   existing Google project; Twitch needs a Twitch dev app from the user). Rank channels by viewers and fit.
+2. **Rights**: posting clips of streamers who haven't agreed risks takedowns, strikes and YouTube
+   "reused content" demonetization, which would kill revenue. So the code still blocks clipping without
+   permission. Claude recommended feeding discovery into the opt-in funnel (`/p/join` + auto-verify), plus
+   paid clipping campaigns where streamers already grant rights. **Waiting on the user's call** about the
+   rights model; don't remove the permission checks without it.
+
 ## Open work
 | Task | Notes |
 |---|---|
