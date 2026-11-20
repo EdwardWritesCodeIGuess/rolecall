@@ -1,0 +1,142 @@
+{
+  "id": "RolecallEventsAl",
+  "name": "Rolecall · Events → alerts (review, post by hand, failures)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rolecall-events",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a5cd1393-ca03-5853-b475-08f727c045e4",
+      "name": "Rolecall event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5c60b859-06f9-59a1-bbea-664511c79b4d"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction forChannel(text) {\n  const url = ($env.NOTIFY_WEBHOOK_URL || '').trim();\n  let payload = text, contentType = 'text/plain';\n  if (url.includes('discord.com/api/webhooks') || url.includes('discordapp.com/api/webhooks')) {\n    payload = JSON.stringify({ content: text.slice(0, 1900), allowed_mentions: { parse: [] } });\n    contentType = 'application/json';\n  } else if (url.includes('hooks.slack.com')) {\n    payload = JSON.stringify({ text });\n    contentType = 'application/json';\n  }\n  return { json: { url, contentType, payload, text } };\n}\n\nconst e = $json.body || $json;\nconst c = e.clip || e;\nconst who = c.creator ? c.creator.name : '';\nconst title = c.title || `clip ${c.clip_id}`;\nconst flagLines = (c.needs_human || []).map(f => `• ${f.detail}`).join('\\n');\nconst L = (c.links || {}), PL = (e.links || {});\nlet text = null;\nswitch (e.event) {\n  case 'clip.needs_review':\n    text = `Needs review: ${title} (${who}, ${c.duration}s)\\n${flagLines || '• first clips from a new streamer get a human look'}\\nReview: ${L.review}`;\n    break;\n  case 'clip.ready':\n    text = `Clip queued to post: ${title} (${who}, ${c.duration}s)`;\n    break;\n  case 'post.export_ready': {\n    const cap = ((c.copy || {})[e.platform] || {}).caption || '';\n    text = `Ready to post by hand on ${e.platform}: ${title}\\nCaption:\\n${cap}\\nVideo: ${PL.video}\\nMark it posted: ${PL.posts}`;\n    break;\n  }\n  case 'post.published':\n    text = `Live on ${e.platform}: ${title} ${e.remote_url || ''}`;\n    break;\n  case 'post.failed':\n    text = `Post FAILED on ${e.platform}: ${title}\\n${e.error || ''}\\n${PL.posts}`;\n    break;\n  case 'job.failed':\n    text = `Rolecall ${e.stage} failed: ${e.error}`;\n    break;\n  case 'source.ingested':\n    text = `New VOD from ${e.creator}: ${e.title || e.url}`;\n    break;\n}\nif (!text) return [];\nreturn [forChannel(`[Rolecall] ${text}`)];\n"
+      },
+      "id": "3f874098-5d0b-59f3-bca8-feff73901da6",
+      "name": "Write alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "notes": "Clip needs review, ready to post by hand, posted, failed",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c8d74998-609f-5d9b-9ff3-0c8c1339cfc9",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4b546a38-acd8-52e4-b59e-847233502730",
+      "name": "Alert channel set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "={{ $json.contentType }}",
+        "body": "={{ $json.payload }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "e7605170-a0fd-5f30-b1cd-fccd9078bed7",
+      "name": "Send alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Rolecall event": {
+      "main": [
+        [
+          {
+            "node": "Write alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write alert": {
+      "main": [
+        [
+          {
+            "node": "Alert channel set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert channel set?": {
+      "main": [
+        [
+          {
+            "node": "Send alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,246 @@
+{
+  "id": "RolecallAutopilt",
+  "name": "Rolecall · Autopilot (find VODs → cut & edit → post)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "8d4d5198-ea26-5a5a-b3a5-23b235956dc7",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/run/watch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1900000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "1800"
+            }
+          ]
+        }
+      },
+      "id": "c1e85804-9629-52d8-8f50-c8ba84b02d45",
+      "name": "Find new VODs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "notes": "Authorized channels only. Skips streams still live.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/run/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 3500000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "3300"
+            }
+          ]
+        }
+      },
+      "id": "ed260012-2d70-58aa-8d9f-5877bfd51bbd",
+      "name": "Cut & edit next VOD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "notes": "Moments -> 9:16 reframe, captions, credit, audio cleanup, checks, titles",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/run/publish",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 700000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "600"
+            }
+          ]
+        }
+      },
+      "id": "17f30757-f5bc-57bb-9c06-e10642d669ef",
+      "name": "Post what's due",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "notes": "YouTube posts itself; Instagram/TikTok come back as ready-to-post",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst pick = (n) => { try { return $(n).first().json; } catch (e) { return {}; } };\nconst watch = pick('Find new VODs');\nconst proc = pick('Cut & edit next VOD');\nconst pub = pick(\"Post what's due\");\nconst posts = (pub.result && pub.result.posts) || [];\nreturn [{ json: {\n  find: watch.status, new_vods: ((watch.result && watch.result.ingested) || []).map(v => `${v.creator}: ${v.title || v.url}`),\n  waiting_on_live: ((watch.result && watch.result.waiting) || []).length,\n  cut_and_edit: proc.status, source_id: proc.result ? proc.result.source_id : null,\n  clips_made: ((proc.result && proc.result.clips) || []).length,\n  needs_review: proc.result ? proc.result.needs_review : 0,\n  vods_left: proc.result ? proc.result.remaining : null,\n  post: pub.status,\n  published: posts.filter(p => p.status === 'published').map(p => `${p.platform} #${p.post_id}`),\n  ready_to_post_by_hand: posts.filter(p => p.status === 'export_ready').map(p => `${p.platform} #${p.post_id}`),\n  failed: posts.filter(p => p.status === 'failed').length,\n  busy: [watch, proc, pub].filter(x => x.status === 'busy').map(x => x.stage),\n}}];\n"
+      },
+      "id": "155370b9-a56f-5976-8016-aac846828a8f",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "26fb1bc1-73c6-5afa-bf95-9c81e85417a6",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "Find new VODs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find new VODs": {
+      "main": [
+        [
+          {
+            "node": "Cut & edit next VOD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cut & edit next VOD": {
+      "main": [
+        [
+          {
+            "node": "Post what's due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post what's due": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Find new VODs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

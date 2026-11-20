@@ -4,6 +4,7 @@
 !.env.example
 data/
 n8n/data/
+n8n/.runtime/
 *.db
 *.db-shm
 *.db-wal

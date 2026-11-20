@@ -817,3 +817,7 @@ def robots() -> str:
 
 app.include_router(public)
 app.include_router(admin)
+
+from .api import api  # noqa: E402 - machine API for n8n (bearer token)
+
+app.include_router(api)

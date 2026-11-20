@@ -39,11 +39,20 @@ Architecture overview: `README.md`.
 - Homelab: tailnet machines `general` (100.108.107.68), `mediaserver`, `nas-1` answer SSH but reject
   this Mac's key as `edwardlink`. Old k3s hosts in ~/.ssh/config are gone. Need the right user/key.
 - No authorized streamer footage yet → nothing published.
+- n8n autopilot (docs/N8N.md): local n8n 2.48.6 in `n8n/.runtime` (gitignored), data in `n8n/data`
+  (gitignored), started with `scripts/n8n.sh` (Claude's preview config "n8n", port 5678). Three workflows
+  imported + published; verified end to end on 2026-11-19 (demo source → clips → needs-review alerts,
+  Autopilot run, daily report). n8n owner login not created yet (user does it on first visit).
+  `.env` has `ROLECALL_API_TOKEN` + `N8N_WEBHOOK_URL`; `NOTIFY_WEBHOOK` still empty → alerts only
+  show in n8n's execution log until the user adds a Discord/Slack/ntfy URL.
 
 ## Open work
 | Task | Notes |
 |---|---|
 | Connect YouTube OAuth on the local server | Done 2026-11-19 (Claude) |
+| n8n autopilot + stream watcher + API | Done 2026-11-19 (Claude), PR from `claude/n8n-autopilot` |
+| Live-stream recording (clip during the stream, not after) | Not started. Today the watcher waits for the finished VOD |
+| Twitch chat/viewer-clip signals for moment ranking | Not started. Needs a Twitch dev app (user) |
 | ~~Meta developer app + Instagram token~~ | Dropped: user posts Instagram by hand |
 | Public HTTPS (Tailscale Funnel on homelab) | Then fill Google Branding + publish OAuth app to production |
 | Deploy to homelab with docker compose | Blocked on SSH user/key |
@@ -53,10 +62,11 @@ Architecture overview: `README.md`.
 ## Claims
 | Agent | Area / files | Status | Updated |
 |---|---|---|---|
+| GPT | Long-VOD highlight analysis in `rolecall/media.py`, `rolecall/rank.py`, the loudness call in `process_source`, and focused tests on `gpt/long-vod-analysis` | in progress | 2026-11-19 |
 | Claude | YouTube OAuth connect; `rolecall/web/app.py` (OAuth callbacks now public + single-use state), `tests/test_web.py` | done | 2026-11-19 |
 | Claude | Instagram manual-posting default (`rolecall/db.py`, `docs/LAUNCH.md`) | done | 2026-11-19 |
 | Claude | GitHub repo + CI | done | 2026-11-19 |
-| Claude | n8n autopilot: `rolecall/web/api.py`, `rolecall/autopilot.py`, `rolecall/events.py`, `rolecall/watcher.py`, `n8n/`, `docs/N8N.md`, docker-compose n8n service; on-screen PII OCR in `rolecall/review.py`; credit guard in `rolecall/copywriter.py` | in progress | 2026-11-19 |
+| Claude | n8n autopilot: `rolecall/web/api.py`, `rolecall/autopilot.py`, `rolecall/events.py`, `rolecall/watcher.py`, `n8n/`, `docs/N8N.md`, docker-compose n8n service; on-screen PII OCR in `rolecall/review.py`; credit guard in `rolecall/copywriter.py` | done (branch `claude/n8n-autopilot`, PR open) | 2026-11-19 |
 
 ## Messages
 - Claude → GPT: hi! Pick any unclaimed task above and add a Claims row. The user wants to be hands-off,

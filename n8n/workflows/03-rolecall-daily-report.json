@@ -1,0 +1,259 @@
+{
+  "id": "RolecallDailyRpt",
+  "name": "Rolecall · Daily report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "03478fbb-e817-56d4-9441-d6801cb89810",
+      "name": "Every day at 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "days",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "id": "0ffe1da4-1350-5e67-b1ff-d2afe964b548",
+      "name": "Yesterday in numbers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.ROLECALL_URL }}/api/v1/targets",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.ROLECALL_API_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "fccbc812-b53f-5ff1-87ef-13983066d77c",
+      "name": "Where we post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nfunction forChannel(text) {\n  const url = ($env.NOTIFY_WEBHOOK_URL || '').trim();\n  let payload = text, contentType = 'text/plain';\n  if (url.includes('discord.com/api/webhooks') || url.includes('discordapp.com/api/webhooks')) {\n    payload = JSON.stringify({ content: text.slice(0, 1900), allowed_mentions: { parse: [] } });\n    contentType = 'application/json';\n  } else if (url.includes('hooks.slack.com')) {\n    payload = JSON.stringify({ text });\n    contentType = 'application/json';\n  }\n  return { json: { url, contentType, payload, text } };\n}\n\nconst r = $('Yesterday in numbers').first().json;\nconst t = $('Where we post').first().json;\nconst plats = (t.platforms || []).filter(p => p.enabled)\n  .map(p => `${p.platform} (${p.mode === 'api' ? 'auto' : 'by hand'}${p.connected ? '' : ', NOT connected'})`).join(', ');\nconst by = Object.entries(r.published_by_platform || {}).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';\nconst top = (r.top || []).map(x => `• ${x.title} — ${x.views} views (${x.platform})`).join('\\n');\nconst money = (v) => v == null ? '-' : `$${Number(v).toFixed(2)}`;\nconst lines = [\n  `[Rolecall] Daily report${r.paused ? ' (PAUSED)' : ''}`,\n  `New VODs: ${r.sources_ingested} · clips made: ${r.clips_made} · posted: ${r.published} (${by})`,\n  `Waiting on you: ${r.needs_review} to review, ${r.export_ready} to post by hand, ${r.failed} failed`,\n  `Followers: ${Object.entries(r.followers || {}).map(([k, v]) => `${k} ${v}`).join(', ') || '-'} · total views ${r.views_total}`,\n  `This month: revenue ${money(r.revenue_month)}, cost ${money(r.cost_month)}, cost/clip ${money(r.cost_per_clip)} · new leads ${r.leads_new}, clients ${r.clients}`,\n  `Posting to: ${plats || 'nothing enabled'} as @${t.handle} · driver: ${r.driver}`,\n];\nif (top) lines.push('Top clips:\\n' + top);\nlines.push(`Dashboard: ${r.dashboard}`);\nreturn [forChannel(lines.join('\\n'))];\n"
+      },
+      "id": "3078aa75-dda6-597c-b35a-6755049c7741",
+      "name": "Write report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c8d74998-609f-5d9b-9ff3-0c8c1339cfc9",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4b546a38-acd8-52e4-b59e-847233502730",
+      "name": "Alert channel set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "={{ $json.contentType }}",
+        "body": "={{ $json.payload }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "2d8b6175-5cb9-57d7-86e3-7d8a10a6dc96",
+      "name": "Send report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "26fb1bc1-73c6-5afa-bf95-9c81e85417a6",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Every day at 9:00": {
+      "main": [
+        [
+          {
+            "node": "Yesterday in numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yesterday in numbers": {
+      "main": [
+        [
+          {
+            "node": "Where we post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Where we post": {
+      "main": [
+        [
+          {
+            "node": "Write report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write report": {
+      "main": [
+        [
+          {
+            "node": "Alert channel set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Yesterday in numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert channel set?": {
+      "main": [
+        [
+          {
+            "node": "Send report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
