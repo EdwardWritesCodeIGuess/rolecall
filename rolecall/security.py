@@ -75,3 +75,15 @@ def verify(path: str, token: str) -> bool:
 
 def random_token(n: int = 18) -> str:
     return secrets.token_urlsafe(n)
+
+
+def api_token() -> str:
+    """Bearer token for /api/v1 (n8n). ROLECALL_API_TOKEN, else generated once into data/.api_token."""
+    cfg = get_config()
+    if cfg.api_token:
+        return cfg.api_token
+    p = cfg.data_dir / ".api_token"
+    if not p.exists():
+        p.write_text(secrets.token_urlsafe(32))
+        p.chmod(0o600)
+    return p.read_text().strip()

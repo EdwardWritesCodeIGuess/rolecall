@@ -192,6 +192,27 @@ def write_copy(segments: list[dict], streamer: str, credit: str, fmt: str, avoid
     }
 
 
+def ensure_credit(copy: dict, credit: str) -> dict:
+    """Every platform's text must credit the streamer, whoever wrote it (rules or LLM)."""
+    copy = {**copy, "credit": credit}
+    if not credit:
+        return copy
+    needle = credit.lower()
+    yt = dict(copy.get("youtube") or {})
+    if needle not in (yt.get("description") or "").lower():
+        yt["description"] = f"{(yt.get('description') or '').rstrip()}\n\nStreamer: {credit}".strip()
+    copy["youtube"] = yt
+    for plat, limit in (("instagram", 2200), ("tiktok", 2200)):
+        p = dict(copy.get(plat) or {})
+        cap = p.get("caption") or ""
+        if needle not in cap.lower():
+            line = f"Clip from {credit}" if plat == "instagram" else f"(via {credit})"
+            cap = f"{cap.rstrip()}\n\n{line}" if plat == "instagram" else f"{cap.rstrip()} {line}"
+            p["caption"] = cap.strip()[:limit]
+        copy[plat] = p
+    return copy
+
+
 RERANK_SCHEMA = {
     "type": "object",
     "properties": {

@@ -182,6 +182,15 @@ CREATE TABLE IF NOT EXISTS tokens (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS watch_seen (       -- VODs the stream watcher has looked at
+  url TEXT PRIMARY KEY,
+  creator_id INTEGER REFERENCES creators(id),
+  status TEXT NOT NULL,                      -- ingested|skipped|live|error
+  reason TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status, platform);
 CREATE INDEX IF NOT EXISTS idx_clips_review ON clips(review_status);
 CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status);
@@ -206,6 +215,16 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "formats": ["punch", "story"],         # add "long" (61-90s) for TikTok Creator Rewards eligibility
     "trusted_after": 3,                    # human-approved clips before a creator is auto-trusted
     "max_attempts": 5,
+    # Automation (n8n). auto = n8n drives watch/process/publish while it keeps calling /api/v1/run/*;
+    # the built-in worker takes over if n8n is quiet for n8n_grace_minutes. n8n|builtin force one.
+    "orchestrator": "auto",
+    "n8n_grace_minutes": 90,
+    # Stream watcher (creators with a watch_url and an active, verified permission)
+    "watch_every_minutes": 60,             # built-in worker cadence; n8n uses its own schedule
+    "watch_lookback": 5,                   # newest N VODs checked per channel
+    "watch_max_age_days": 14,              # ignore older VODs
+    "watch_per_run": 1,                    # new VODs ingested per channel per run (keeps CPU/disk bounded)
+    "ocr_enabled": True,                   # scan rendered frames for on-screen personal info (needs tesseract)
 }
 
 _local = threading.local()

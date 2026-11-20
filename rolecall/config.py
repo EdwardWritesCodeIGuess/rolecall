@@ -37,6 +37,10 @@ class Config:
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
     anthropic_model: str = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5")
     notify_webhook: str = os.environ.get("NOTIFY_WEBHOOK", "")  # Discord/ntfy/Slack-compatible
+    # n8n automation: bearer token for /api/v1 (empty = generated into data/.api_token) and the
+    # n8n webhook Rolecall sends events to (clip ready, needs review, posted, failed).
+    api_token: str = os.environ.get("ROLECALL_API_TOKEN", "")
+    n8n_webhook_url: str = os.environ.get("N8N_WEBHOOK_URL", "")
     # Platform app credentials (created by the account owner; see docs/LAUNCH.md).
     google_client_id: str = os.environ.get("GOOGLE_CLIENT_ID", "")
     google_client_secret: str = os.environ.get("GOOGLE_CLIENT_SECRET", "")

@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import db, pipeline, review
+from . import autopilot, db, events, pipeline, review, watcher
 from .config import get_config
 from .publishers import PLATFORMS, NotConnected, PostJob, PublishError, get_publisher
 
@@ -77,6 +77,7 @@ def _fail(post, err: str, retryable: bool) -> None:
     else:
         db.ex("UPDATE posts SET status='failed', attempts=?, last_error=? WHERE id=?", (attempts, err[:2000], post["id"]))
         db.log_event("error", "publish", f"Post {post['id']} ({post['platform']}) failed: {err}", "post", post["id"])
+        events.emit("post.failed", events.post_summary(post["id"]))
 
 
 def publish_one(post) -> str:
@@ -114,11 +115,14 @@ def publish_one(post) -> str:
     verb = "published" if res.status == "published" else "ready to post by hand"
     db.log_event("info", "publish", f"Clip {clip['id']} {verb} on {post['platform']}: {res.remote_url or res.remote_id}",
                  "post", post["id"])
+    events.emit("post.published" if res.status == "published" else "post.export_ready", events.post_summary(post["id"]))
     return res.status
 
 
-def publish_due() -> None:
+def publish_due() -> list[dict]:
+    """Advance in-flight posts, then publish at most one due post per platform. Returns what changed."""
     now_s = db.now_iso()
+    changed: list[dict] = []
     # In-flight posts (resumable uploads, Instagram containers) continue unless paused: the pause
     # switch is a hard stop, so nothing goes public while it is on.
     for post in db.q("SELECT * FROM posts WHERE status IN ('processing','uploading') ORDER BY id"):
@@ -127,7 +131,7 @@ def publish_due() -> None:
         if post["status"] == "uploading" and not db.jload(post["state"], {}):
             db.ex("UPDATE posts SET status='queued' WHERE id=?", (post["id"],))  # crashed before any progress
             continue
-        publish_one(post)
+        changed.append({"post_id": post["id"], "platform": post["platform"], "status": publish_one(post)})
     for platform in PLATFORMS:
         ok, why = can_post_now(platform)
         if not ok:
@@ -141,7 +145,8 @@ def publish_due() -> None:
             "AND c.review_status IN ('approved','auto_approved') ORDER BY c.score DESC, p.id LIMIT 1",
             (platform, now_s))
         if post:
-            publish_one(post)
+            changed.append({"post_id": post["id"], "platform": platform, "status": publish_one(post)})
+    return changed
 
 
 def refresh_metrics() -> None:
@@ -170,33 +175,20 @@ def refresh_metrics() -> None:
                        m.get("comments"), m.get("shares"), m.get("followers_gained")))
 
 
-def watch_channels() -> None:
-    for c in db.q("SELECT * FROM creators WHERE watch_url IS NOT NULL AND watch_url!=''"):
-        if not pipeline.active_permission(c["id"]):
-            continue
-        try:
-            import yt_dlp
-
-            with yt_dlp.YoutubeDL({"quiet": True, "extract_flat": True, "playlistend": 5}) as ydl:
-                info = ydl.extract_info(c["watch_url"], download=False)
-            for entry in (info.get("entries") or [])[:5]:
-                url = entry.get("url") or entry.get("webpage_url")
-                if url and not db.q1("SELECT 1 FROM sources WHERE origin=?", (url,)):
-                    pipeline.ingest_url(c["id"], url, kind="watch")
-                    break  # one new VOD per creator per run keeps disk + CPU bounded
-        except Exception as e:  # noqa: BLE001
-            db.log_event("warn", "watch", f"{c['slug']}: {e}")
+def watch_channels() -> dict:
+    return watcher.watch()
 
 
 def tick() -> None:
-    pipeline.scan_inbox()
-    src = db.q1("SELECT id FROM sources WHERE status='new' ORDER BY id LIMIT 1")
-    if src:
-        try:
-            pipeline.process_source(src["id"])
-        except Exception:  # noqa: BLE001 - already logged on the source
-            pass
-    publish_due()
+    # watch / process / publish: n8n drives these while it is checking in (see autopilot.py); the
+    # built-in worker covers them when n8n is not set up or has gone quiet.
+    if autopilot.builtin_should_run():
+        pipeline.scan_inbox()
+        if db.q1("SELECT 1 FROM sources WHERE status='new' LIMIT 1"):
+            autopilot.run_inline("process")
+        autopilot.run_inline("publish")
+        if _due("watch", int(db.get_setting("watch_every_minutes") or 60) * 60):
+            autopilot.run_inline("watch")
     if _due("metrics", 6 * 3600):
         refresh_metrics()
     if _due("ig_refresh", 24 * 3600):
@@ -206,8 +198,6 @@ def tick() -> None:
             Instagram().refresh_if_needed()
         except Exception as e:  # noqa: BLE001
             db.log_event("error", "token", f"Instagram token refresh: {e}")
-    if _due("watch", 6 * 3600):
-        watch_channels()
     if _due("autoverify", 30 * 60):
         try:
             pipeline.autoverify()

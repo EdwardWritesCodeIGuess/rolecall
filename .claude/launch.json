@@ -6,6 +6,12 @@
       "runtimeExecutable": "/Users/edwardlink/Clipping/scripts/dev.sh",
       "runtimeArgs": [],
       "port": 8080
+    },
+    {
+      "name": "n8n",
+      "runtimeExecutable": "/Users/edwardlink/Clipping/scripts/n8n.sh",
+      "runtimeArgs": [],
+      "port": 5678
     }
   ]
 }

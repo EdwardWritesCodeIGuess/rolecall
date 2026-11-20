@@ -108,6 +108,58 @@ def content_flags(text: str, words: list[dict], duration: float, loud_db: np.nda
     return flags
 
 
+# On-screen text: Discord/phone notifications, browser tabs and chat overlays leak real info more
+# often than speech does. In-game GTA phones use the fictional 555 exchange, so those are ignored.
+SCREEN_PATTERNS = {k: PII_PATTERNS[k] for k in ("phone number", "email address", "street address", "IP address",
+                                                 "payment card / SSN")}
+FICTIONAL_PHONE = re.compile(r"\(?\d{3}\)?[\s.-]?555[\s.-]?\d{4}|\b555[\s.-]\d{4}\b")
+
+
+def screen_text_hits(text: str) -> list[tuple[str, str]]:
+    hits = []
+    for label, rx in SCREEN_PATTERNS.items():
+        for m in rx.finditer(text):
+            s = m.group(0)
+            if label == "phone number" and FICTIONAL_PHONE.search(s):
+                continue
+            if label == "IP address" and not all(0 <= int(x) <= 255 for x in re.findall(r"\d+", s)):
+                continue
+            hits.append((label, s))
+            break
+    return hits
+
+
+def screen_text_flags(video, duration: float, work, every: float = 2.0, max_frames: int = 40) -> list[dict]:
+    """OCR sampled frames of the rendered clip for personal info. Needs the `tesseract` binary."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from .media import FFMPEG
+
+    exe = shutil.which("tesseract")
+    if not exe:
+        return [flag("screen_text_unchecked", "info",
+                     "On-screen text was not scanned for personal info (install tesseract to enable).")]
+    work = Path(work)
+    work.mkdir(parents=True, exist_ok=True)
+    step = max(every, duration / max_frames)
+    try:
+        subprocess.run([FFMPEG, "-nostdin", "-v", "error", "-y", "-i", str(video), "-vf", f"fps=1/{step:.3f}",
+                        str(work / "f_%04d.png")], check=True, capture_output=True, timeout=300)
+        found: dict[str, tuple[float, str]] = {}
+        for i, png in enumerate(sorted(work.glob("f_*.png"))):
+            r = subprocess.run([exe, str(png), "stdout", "--psm", "11"], capture_output=True, text=True, timeout=60)
+            for label, s in screen_text_hits(r.stdout):
+                found.setdefault(label, (i * step, s))
+    except (subprocess.SubprocessError, OSError) as e:
+        return [flag("screen_text_unchecked", "review", f"On-screen text scan failed ({e}); check by eye.")]
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return [flag("pii_on_screen", "review", f"Possible {label} on screen near {t:.0f}s: \"{s[:40]}\". "
+                 "Blur or cut it if it is real.") for label, (t, s) in found.items()]
+
+
 def decide(flags: list[dict], creator_id: int, is_demo: bool) -> str:
     """Return review status for a freshly rendered clip."""
     if is_demo:

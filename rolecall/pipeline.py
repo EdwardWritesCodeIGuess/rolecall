@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 from urllib.parse import urlparse
 
-from . import copywriter, db, media, review
+from . import copywriter, db, events, media, review
 from .config import get_config
 from .rank import FORMATS, find_moments
 from .render import RenderSpec, render
@@ -22,6 +22,13 @@ VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".flv", ".ts", ".m4v"}
 
 class PermissionDenied(Exception):
     pass
+
+
+class StillLive(Exception):
+    """The stream is still in progress: clip it once the VOD is finished."""
+
+
+LIVE_STATES = {"is_live", "is_upcoming", "post_live"}
 
 
 # ---------------------------------------------------------------- permissions
@@ -104,6 +111,8 @@ def ingest_url(creator_id: int, url: str, kind: str = "url") -> int:
         return db.q1("SELECT id FROM sources WHERE origin=?", (url,))["id"]
     with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "noplaylist": True}) as ydl:
         info = ydl.extract_info(url, download=False)
+    if info.get("is_live") or info.get("live_status") in LIVE_STATES:
+        raise StillLive(f"{url} is still live; it will be clipped once the VOD is finished.")
     owners = [info.get("channel_url"), info.get("uploader_url"), url]
     if info.get("extractor_key", "").lower().startswith("twitch") and info.get("uploader_id"):
         owners.append(f"https://twitch.tv/{info['uploader_id']}")
@@ -268,6 +277,9 @@ def render_moment(moment_id: int, layout: str | None = None) -> int:
         flags.insert(0, review.flag("demo_footage", "block", "Labeled local demo: never published publicly."))
     taken = {r["title"] for r in db.q("SELECT title FROM clips WHERE source_id=? AND title IS NOT NULL", (src["id"],))}
     copy = copywriter.write_copy(segments, creator["display_name"], credit, m["fmt"], avoid=taken)
+    copy = copywriter.ensure_credit(copy, credit)
+    if db.get_setting("ocr_enabled"):
+        flags += review.screen_text_flags(out, res["duration"], cfg.dir("tmp") / f"ocr_{moment_id}_{clip_key}")
     status = review.decide(flags, creator["id"], bool(src["is_demo"]))
     compute = res["render_seconds"] / 3600 * cfg.compute_cost_per_hour * 100
     cost = round(compute + float(copy.get("cost_cents", 0)), 3)
@@ -284,6 +296,7 @@ def render_moment(moment_id: int, layout: str | None = None) -> int:
         queue_posts(cid)
     elif status == "needs_review" and not src["is_demo"]:
         db.log_event("action", "review", f"Clip {cid} needs review: {copy['title']}", "clip", cid)
+    events.emit("clip.needs_review" if status == "needs_review" else "clip.ready", events.clip_summary(cid))
     return cid
 
 
