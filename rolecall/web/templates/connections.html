@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Connections</h1>
+<p class="muted">Tokens are encrypted at rest. Disconnect deletes them here; also revoke on the platform (links below) to cut access completely.</p>
+<div class="grid g3">
+  <div class="card">
+    <h2>YouTube Shorts <span class="badge {{ 'b-ok' if snap.youtube.connected else 'b-warn' }}">{{ snap.youtube.connection }}</span></h2>
+    {% if accounts.youtube %}<p>Channel: <b>{{ accounts.youtube.account_name }}</b><br><span class="small muted">since {{ accounts.youtube.updated_at }}</span></p>{% endif %}
+    {% if cfg.google_client_id %}
+      <p><a class="btn primary" href="/connect/youtube">{{ 'Reconnect' if accounts.youtube else 'Connect' }} YouTube</a></p>
+      <p class="small muted">Redirect URI to register in Google Cloud: <code>{{ yt_redirect }}</code></p>
+      <form method="post" action="/connect/youtube/paste"><input type="hidden" name="csrf" value="{{ csrf() }}">
+        <label class="small">If the redirect page failed to load, paste its full URL:</label>
+        <div class="row"><input name="url" placeholder="http://localhost:8080/oauth/youtube/callback?code=..."><button style="flex:0">Finish</button></div></form>
+    {% else %}<p class="small">Add <code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code> to <code>.env</code> (docs/LAUNCH.md step 3).</p>{% endif %}
+    <p class="small"><a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Revoke at Google</a></p>
+    {% if accounts.youtube %}<form method="post" action="/disconnect/youtube" data-confirm="Disconnect YouTube?"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="danger">Disconnect</button></form>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Instagram Reels <span class="badge {{ 'b-ok' if snap.instagram.connected else 'b-warn' }}">{{ snap.instagram.connection }}</span></h2>
+    {% if accounts.instagram %}<p>Account: <b>@{{ accounts.instagram.account_name }}</b></p>{% endif %}
+    <form method="post" action="/connect/instagram"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <label>Access token (Meta App Dashboard → Instagram → API setup with Instagram login → Generate token)</label>
+      <input name="token" type="password" autocomplete="off" required>
+      <p><button class="primary">Save token</button></p></form>
+    <p class="small muted">Public media URL: <code>{{ cfg.public_base_url or 'NOT SET (PUBLIC_BASE_URL)' }}</code>: Instagram downloads each Reel from a signed, 6-hour link here.</p>
+    <form method="post" action="/settings"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <label class="small">Posting mode</label>
+      <div class="row"><select name="instagram_mode"><option value="api" {{ 'selected' if instagram_mode=='api' }}>api (automatic)</option>
+        <option value="export" {{ 'selected' if instagram_mode=='export' }}>export (post by hand at instagram.com)</option></select><button style="flex:0">Save</button></div></form>
+    <p class="small"><a href="https://www.instagram.com/accounts/manage_access/" target="_blank" rel="noopener">Revoke at Instagram</a></p>
+    {% if accounts.instagram %}<form method="post" action="/disconnect/instagram" data-confirm="Disconnect Instagram?"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="danger">Disconnect</button></form>{% endif %}
+  </div>
+  <div class="card">
+    <h2>TikTok <span class="badge {{ 'b-ok' if snap.tiktok.connected else 'b-warn' }}">{{ tiktok_mode }}</span></h2>
+    <p class="small">TikTok permits automatic <i>public</i> posting only for audited apps and does not audit tools that only post to the owner's own accounts.
+      <b>Export</b> mode prepares each clip + caption for a 30-second post from your phone (Posts → Ready for TikTok).
+      <b>Inbox</b> mode sends the video to your TikTok inbox as a draft (needs a TikTok developer app approved for <code>video.upload</code>).</p>
+    <form method="post" action="/settings"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <div class="row"><select name="tiktok_mode"><option value="export" {{ 'selected' if tiktok_mode=='export' }}>export (manual post)</option>
+        <option value="inbox" {{ 'selected' if tiktok_mode=='inbox' }}>inbox (draft upload)</option></select><button style="flex:0">Save</button></div></form>
+    {% if cfg.tiktok_client_key %}<p><a class="btn" href="/connect/tiktok">Connect TikTok app</a></p>
+      <p class="small muted">Redirect URI: <code>{{ tt_redirect }}</code></p>{% endif %}
+    {% if accounts.tiktok %}<form method="post" action="/disconnect/tiktok"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="danger">Disconnect</button></form>{% endif %}
+  </div>
+</div>
+<div class="card" style="margin-top:14px">
+  <h2>Public pages to share</h2>
+  <ul class="small">
+    <li>Streamer sign-up + permission: <a href="/p/join" target="_blank">/p/join</a></li>
+    <li>Clipping service + pricing (lead capture): <a href="/p/pricing" target="_blank">/p/pricing</a></li>
+    <li>Removal requests: <a href="/p/remove" target="_blank">/p/remove</a></li>
+    <li>Privacy policy / terms (needed for Meta and TikTok app setup): <a href="/p/privacy" target="_blank">/p/privacy</a>, <a href="/p/terms" target="_blank">/p/terms</a></li>
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="row" style="align-items:flex-start">
+  <h1 style="flex:3">Overview</h1>
+  <form method="post" action="/pause" class="inline" style="flex:0" data-confirm="{{ 'Resume publishing?' if paused else 'Pause ALL publishing now?' }}">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <button class="big-switch {{ 'primary' if paused else 'danger' }}">{{ 'Resume publishing' if paused else 'Pause all publishing' }}</button>
+  </form>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="v">{{ k.needs_review }}</div><div class="l">Clips to review</div></div>
+  <div class="card kpi"><div class="v">{{ k.queued }}</div><div class="l">Queued posts</div></div>
+  <div class="card kpi"><div class="v">{{ k.published_7d }}</div><div class="l">Published (7 days)</div></div>
+  <div class="card kpi"><div class="v">{{ k.views|num }}</div><div class="l">Views (tracked)</div></div>
+  <div class="card kpi"><div class="v">{{ k.watch_hours }}</div><div class="l">Watch hours</div></div>
+  <div class="card kpi"><div class="v">{{ (k.completion ~ '%') if k.completion is not none else '-' }}</div><div class="l">Avg completion</div></div>
+  <div class="card kpi"><div class="v">{{ k.revenue_month|money }}</div><div class="l">Revenue this month</div></div>
+  <div class="card kpi"><div class="v">{{ k.cost_per_clip|money if k.cost_per_clip is not none else '-' }}</div><div class="l">Cost per clip</div></div>
+</div>
+
+<div class="grid g2" style="margin-top:14px">
+  <div class="card todo">
+    <h2>Needs you</h2>
+    {% for t, d, href in todo %}<a href="{{ href }}"><span>{{ t }}</span><span class="muted">{{ d }} &rsaquo;</span></a>
+    {% else %}<p class="muted">Nothing. The pipeline is running on its own.</p>{% endfor %}
+  </div>
+  <div class="card">
+    <h2>Platforms</h2>
+    <div class="table-wrap"><table>
+      <tr><th>Platform</th><th>Connection</th><th>Posting now?</th><th>Queued</th><th></th></tr>
+      {% for p, s in snap.items() %}
+      <tr>
+        <td><b>{{ p }}</b></td>
+        <td><span class="badge {{ 'b-ok' if s.connected else 'b-warn' }}">{{ s.connection }}</span></td>
+        <td><span class="badge {{ 'b-ok' if s.can_post else '' }}">{{ 'yes' if s.can_post else s.why }}</span></td>
+        <td>{{ s.queued }}</td>
+        <td><form method="post" action="/pause" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}">
+          <input type="hidden" name="platform" value="{{ p }}">
+          <button class="small">{{ 'Resume' if settings['paused_' ~ p] else 'Pause' }}</button></form></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    <p class="small muted">Followers: {% for p, f in k.followers.items() %}{{ p }} {{ f|num }} &nbsp;{% else %}not tracked yet{% endfor %}</p>
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:14px">
+  <form class="card" method="post" action="/settings">
+    <input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="platforms_form" value="1">
+    <h2>Publishing rules</h2>
+    <div class="row">
+      <div><label>YouTube / day</label><input type="number" min="0" name="daily_limit_youtube" value="{{ settings.daily_limit_youtube }}"></div>
+      <div><label>Instagram / day</label><input type="number" min="0" name="daily_limit_instagram" value="{{ settings.daily_limit_instagram }}"></div>
+      <div><label>TikTok / day</label><input type="number" min="0" name="daily_limit_tiktok" value="{{ settings.daily_limit_tiktok }}"></div>
+    </div>
+    <div class="row">
+      <div><label>Min gap (minutes)</label><input type="number" min="0" name="min_gap_minutes" value="{{ settings.min_gap_minutes }}"></div>
+      <div><label>Window start (hour)</label><input type="number" min="0" max="23" name="post_window_start" value="{{ settings.post_window_start }}"></div>
+      <div><label>Window end (hour)</label><input type="number" min="1" max="24" name="post_window_end" value="{{ settings.post_window_end }}"></div>
+    </div>
+    <label>Platforms</label>
+    <div class="row">{% for p in ['youtube','instagram','tiktok'] %}<label class="cb"><input type="checkbox" name="enable_{{ p }}" {{ 'checked' if p in settings.platforms_enabled }}> {{ p }}</label>{% endfor %}</div>
+    <label>Clip formats</label>
+    <div class="row">
+      <label class="cb"><input type="checkbox" name="fmt_punch" {{ 'checked' if 'punch' in settings.formats }}> punch (12-35s)</label>
+      <label class="cb"><input type="checkbox" name="fmt_story" {{ 'checked' if 'story' in settings.formats }}> story (35-60s)</label>
+      <label class="cb"><input type="checkbox" name="fmt_long" {{ 'checked' if 'long' in settings.formats }}> long (61-90s, TikTok rewards)</label>
+    </div>
+    <div class="row">
+      <div><label>Clips per source</label><input type="number" min="1" name="clips_per_source" value="{{ settings.clips_per_source }}"></div>
+      <div><label>Min moment score</label><input type="number" step="0.05" min="0" max="1" name="min_moment_score" value="{{ settings.min_moment_score }}"></div>
+      <div><label>Auto-trust after N approvals</label><input type="number" min="0" name="trusted_after" value="{{ settings.trusted_after }}"></div>
+    </div>
+    <p><button class="primary">Save</button></p>
+  </form>
+  <div class="card">
+    <h2>Recent activity <a class="small muted" href="/events">all</a></h2>
+    <table>
+      {% for e in events %}
+      <tr><td class="small muted" style="white-space:nowrap">{{ e.ts[5:16] }}</td>
+          <td><span class="badge {{ {'error':'b-bad','warn':'b-warn','action':'b-info'}.get(e.level,'') }}">{{ e.kind }}</span></td>
+          <td class="small">{{ e.message }}</td></tr>
+      {% else %}<tr><td class="muted">No events yet.</td></tr>{% endfor %}
+    </table>
+    <form method="post" action="/worker/tick" style="margin-top:10px"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <button>Run worker cycle now</button> <span class="small muted">{{ k.sources_processing }} source(s) waiting/processing</span></form>
+  </div>
+</div>
+{% endblock %}

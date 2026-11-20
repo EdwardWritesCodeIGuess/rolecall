@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% macro table(rows, label) %}
+<div class="card table-wrap"><h2>By {{ label }}</h2>
+<table><tr><th>{{ label }}</th><th>Posts</th><th>Avg views</th><th>Views</th><th>Completion</th><th>Watch h</th><th>Followers</th><th>Cost/clip</th></tr>
+{% for r in rows %}<tr><td><b>{{ r.k }}</b></td><td>{{ r.posts }}</td><td>{{ r.avg_views|num }}</td><td>{{ r.views|num }}</td>
+<td>{{ ('%.0f%%'|format(r.completion)) if r.completion is not none else '-' }}</td><td>{{ '%.1f'|format(r.watch_h or 0) }}</td>
+<td>{{ r.followers|num }}</td><td>{{ r.cost|money }}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">No published posts yet.</td></tr>{% endfor %}</table></div>
+{% endmacro %}
+{% block body %}
+<h1>Metrics &amp; money</h1>
+<div class="grid kpis">
+  <div class="card kpi"><div class="v">{{ k.views|num }}</div><div class="l">Views</div></div>
+  <div class="card kpi"><div class="v">{{ k.watch_hours }}</div><div class="l">Watch hours</div></div>
+  <div class="card kpi"><div class="v">{{ (k.completion ~ '%') if k.completion is not none else '-' }}</div><div class="l">Avg completion</div></div>
+  <div class="card kpi"><div class="v">{% for p, f in k.followers.items() %}{{ f|num }} <span class="small muted">{{ p[:2] }}</span> {% else %}-{% endfor %}</div><div class="l">Followers</div></div>
+  <div class="card kpi"><div class="v">{{ k.leads_new }}</div><div class="l">New creator leads</div></div>
+  <div class="card kpi"><div class="v">{{ k.clients }}</div><div class="l">Paying clients</div></div>
+  <div class="card kpi"><div class="v">{{ k.revenue_month|money }}</div><div class="l">Revenue (month)</div></div>
+  <div class="card kpi"><div class="v">{{ k.cost_per_clip|money if k.cost_per_clip is not none else '-' }}</div><div class="l">Cost per clip</div></div>
+</div>
+<div class="card" style="margin-top:14px"><h2>What to double down on</h2>
+  <ul>{% for t in tips %}<li>{{ t }}</li>{% endfor %}</ul></div>
+<div class="grid g2" style="margin-top:14px">
+  {{ table(by_format, 'format') }}
+  {{ table(by_creator, 'creator') }}
+  {{ table(by_platform, 'platform') }}
+  {{ table(by_layout, 'layout') }}
+</div>
+<div class="grid g2" style="margin-top:14px">
+  <div class="card">
+    <h2>Revenue &amp; costs</h2>
+    <table><tr><th>Month</th><th>Revenue</th><th>Costs</th><th>Net</th></tr>
+    {% for r in ledger %}<tr><td>{{ r.month }}</td><td>{{ r.revenue|money }}</td><td>{{ r.cost|money }}</td><td><b>{{ (r.revenue - r.cost)|money }}</b></td></tr>
+    {% else %}<tr><td colspan="4" class="muted">No entries yet.</td></tr>{% endfor %}</table>
+    <form method="post" action="/ledger" style="margin-top:10px">
+      <input type="hidden" name="csrf" value="{{ csrf() }}">
+      <div class="row">
+        <div><label>Type</label><select name="kind"><option>revenue</option><option>cost</option></select></div>
+        <div><label>Category</label><select name="category"><option value="client">client payment</option><option value="platform_payout">platform payout</option>
+          <option value="software">software</option><option value="llm">AI writing</option><option value="other">other</option></select></div>
+        <div><label>Amount $</label><input name="amount" type="number" step="0.01" required></div>
+      </div>
+      <div class="row">
+        <div><label>Platform</label><select name="platform"><option value=""></option><option>youtube</option><option>instagram</option><option>tiktok</option></select></div>
+        <div><label>Client</label><select name="creator_id"><option value=""></option>{% for c in creators %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}</select></div>
+        <div><label>Date</label><input name="date" type="date"></div>
+      </div>
+      <label>Note</label><input name="note"><p><button class="primary">Add entry</button></p>
+    </form>
+  </div>
+  <form class="card" method="post" action="/metrics/manual">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <h2>TikTok numbers (manual)</h2>
+    <p class="small muted">TikTok stats aren't available without an approved app: copy them from TikTok Studio weekly.</p>
+    <label>Post</label><select name="post_id">{% for p in manual_posts %}<option value="{{ p.id }}">#{{ p.id }} {{ p.title }}</option>{% else %}<option value="">No live TikTok posts yet</option>{% endfor %}</select>
+    <div class="row"><div><label>Views</label><input name="views" type="number"></div><div><label>Avg watched %</label><input name="avg_view_pct" type="number" step="0.1"></div></div>
+    <div class="row"><div><label>Likes</label><input name="likes" type="number"></div><div><label>New followers</label><input name="followers_gained" type="number"></div></div>
+    <label>Account followers now</label><input name="followers" type="number">
+    <p><button class="primary">Save</button></p>
+  </form>
+</div>
+<div class="card" style="margin-top:14px"><h2>Recent ledger entries</h2>
+  <table>{% for e in entries %}<tr><td>{{ e.date }}</td><td>{{ e.kind }}</td><td>{{ e.category }}</td><td>{{ (e.amount_cents/100)|money }}</td><td class="small">{{ e.note or '' }}</td></tr>
+  {% else %}<tr><td class="muted">None.</td></tr>{% endfor %}</table></div>
+{% endblock %}

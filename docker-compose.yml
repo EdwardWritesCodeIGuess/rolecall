@@ -1,0 +1,26 @@
+services:
+  rolecall:
+    build: .
+    image: rolecall:latest
+    container_name: rolecall
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data            # database, footage, renders, exports, encrypted tokens
+    # Rendering is CPU-heavy; keep the rest of the homelab responsive.
+    cpus: 4
+    mem_limit: 6g
+
+  # Optional: public HTTPS for Instagram media fetches + streamer pages, without opening ports.
+  # Create a free Cloudflare Tunnel pointing at http://rolecall:8080, put its token in .env,
+  # then: docker compose --profile tunnel up -d
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on: [rolecall]

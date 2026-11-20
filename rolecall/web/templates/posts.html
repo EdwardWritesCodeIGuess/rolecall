@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Posts</h1>
+<div class="row" style="margin-bottom:14px">
+  {% for s, label in [('queued','Queued'),('processing','Processing'),('export_ready','Ready to post by hand'),('published','Live'),('failed','Failed'),('cancelled','Cancelled'),('','All')] %}
+  <a class="btn {{ 'primary' if status == s }}" style="flex:0" href="/posts?status={{ s }}">{{ label }}</a>
+  {% endfor %}
+</div>
+{% if status == 'export_ready' %}
+<div class="card" style="margin-bottom:14px"><p class="small">These platforms are in export mode, so each clip is prepared for you:
+  download the video, upload it at instagram.com or tiktok.com/upload with the caption, then paste the live link here so metrics stay complete.</p></div>
+{% endif %}
+<div class="card table-wrap">
+<table>
+  <tr><th>#</th><th>Clip</th><th>Platform</th><th>Status</th><th>Attempts</th><th>Live link / error</th><th></th></tr>
+  {% for p in posts %}
+  {% set copy = p.copy|fromjson %}
+  <tr>
+    <td>{{ p.id }}</td>
+    <td><a href="/clips/{{ p.clip_id }}">{{ p.title }}</a><div class="small muted">{{ p.display_name }}</div></td>
+    <td>{{ p.platform }}</td>
+    <td><span class="badge {{ {'published':'b-ok','failed':'b-bad','export_ready':'b-info','processing':'b-info'}.get(p.status,'') }}">{{ p.status }}</span>
+      {% if p.next_attempt_at and p.status=='queued' %}<div class="small muted">retry {{ p.next_attempt_at[5:16] }}</div>{% endif %}</td>
+    <td>{{ p.attempts }}</td>
+    <td class="small">
+      {% if p.remote_url %}<a href="{{ p.remote_url }}" target="_blank" rel="noopener">{{ p.remote_url }}</a>{% endif %}
+      {% if p.last_error %}<div class="muted">{{ p.last_error }}</div>{% endif %}
+      {% if p.status == 'export_ready' %}
+        <textarea id="cap{{ p.id }}" rows="2" readonly>{{ copy[p.platform].caption if copy[p.platform] else '' }}</textarea>
+        <div class="row" style="margin-top:4px">
+          <a class="btn" href="/posts/{{ p.id }}/video">Download video</a>
+          <button type="button" data-copy="cap{{ p.id }}">Copy</button>
+        </div>
+        <form method="post" action="/posts/{{ p.id }}/manual" class="row" style="margin-top:4px"><input type="hidden" name="csrf" value="{{ csrf() }}">
+          <input name="url" placeholder="https://..."><button class="primary" style="flex:0">Mark live</button></form>
+      {% endif %}
+    </td>
+    <td style="white-space:nowrap">
+      {% if p.status == 'failed' %}<form method="post" action="/posts/{{ p.id }}/retry" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}"><button>Retry</button></form>{% endif %}
+      {% if p.status == 'queued' %}<form method="post" action="/posts/{{ p.id }}/publish_now" class="inline" data-confirm="Publish this now, ignoring the schedule?"><input type="hidden" name="csrf" value="{{ csrf() }}"><button>Post now</button></form>{% endif %}
+      {% if p.status in ('queued','failed','export_ready') %}<form method="post" action="/posts/{{ p.id }}/cancel" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="danger">Cancel</button></form>{% endif %}
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="7" class="muted">Nothing here.</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}

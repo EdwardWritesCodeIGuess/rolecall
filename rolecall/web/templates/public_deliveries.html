@@ -1,0 +1,17 @@
+{% extends "public_base.html" %}
+{% block title %}Clips for {{ c.display_name }}{% endblock %}
+{% block body %}
+<div class="hero"><h1>Your clips, {{ c.display_name }}</h1>
+<p class="muted">Unbranded vertical clips with captions, ready for your TikTok, Reels and Shorts. Newest first. Keep this link private.</p></div>
+<div class="clipgrid">
+{% for clip in clips %}{% set copy = clip.copy|fromjson %}
+  <div class="card clip">
+    <video src="/d/{{ token }}/{{ clip.id }}.mp4" controls preload="none" playsinline></video>
+    <div class="t">{{ copy.title }}</div>
+    <textarea id="cap{{ clip.id }}" rows="3" readonly>{{ copy.tiktok.caption if copy.tiktok else '' }}</textarea>
+    <div class="row" style="margin-top:6px"><a class="btn primary" href="/d/{{ token }}/{{ clip.id }}.mp4" download>Download</a>
+      <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('cap{{ clip.id }}').value)">Copy caption</button></div>
+  </div>
+{% else %}<p class="muted">Your first clips are being made. Check back soon.</p>{% endfor %}
+</div>
+{% endblock %}

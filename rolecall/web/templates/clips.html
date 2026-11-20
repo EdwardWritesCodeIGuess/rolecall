@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Clips</h1>
+<div class="row" style="margin-bottom:14px; flex-wrap:wrap">
+  {% for s, label in [('needs_review','Needs review'),('auto_approved','Auto-approved'),('approved','Approved'),('rejected','Rejected'),('','All')] %}
+  <a class="btn {{ 'primary' if status == s }}" style="flex:0" href="/clips?status={{ s }}">{{ label }}</a>
+  {% endfor %}
+</div>
+<div class="clipgrid">
+{% for c in clips %}
+  {% set flags = c.flags|fromjson %}
+  <div class="card clip">
+    <video src="/media/clip/{{ c.id }}" poster="/media/clip/{{ c.id }}?kind=thumb" controls preload="none" playsinline></video>
+    <div class="t"><a href="/clips/{{ c.id }}">{{ c.title }}</a></div>
+    <div class="small muted">#{{ c.id }} · {{ c.display_name }} · {{ c.fmt }} · {{ c.layout }} · {{ '%.0f'|format(c.duration or 0) }}s · score {{ '%.2f'|format(c.score or 0) }}</div>
+    <div class="flags">
+      <span class="badge {{ {'needs_review':'b-warn','approved':'b-ok','auto_approved':'b-ok','rejected':'b-bad'}.get(c.review_status,'') }}">{{ c.review_status }}</span>
+      {% for f in flags %}<span class="badge {{ {'block':'b-bad','review':'b-warn','info':'b-info'}[f.severity] }}" title="{{ f.detail }}">{{ f.code }}</span>{% endfor %}
+      {% for p in posts[c.id] %}<span class="badge {{ 'b-ok' if p.status=='published' else '' }}">{{ p.platform }}: {{ p.status }}</span>{% endfor %}
+    </div>
+    {% if c.review_status == 'needs_review' %}
+    <div class="row">
+      <form method="post" action="/clips/{{ c.id }}/approve" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}">
+        <input type="hidden" name="next" value="/clips?status={{ status }}"><button class="primary" style="width:100%">Approve</button></form>
+      <form method="post" action="/clips/{{ c.id }}/reject" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}">
+        <input type="hidden" name="next" value="/clips?status={{ status }}"><button style="width:100%">Reject</button></form>
+      <a class="btn" href="/clips/{{ c.id }}" style="text-align:center">Edit</a>
+    </div>
+    {% endif %}
+  </div>
+{% else %}
+  <p class="muted">No clips here. Add footage under <a href="/sources">Sources</a>.</p>
+{% endfor %}
+</div>
+{% endblock %}

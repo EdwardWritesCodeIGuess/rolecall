@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Creator leads</h1>
+<p class="muted">From <a href="/p/pricing" target="_blank">/p/pricing</a> and the "interested in the paid service" box on <a href="/p/join" target="_blank">/p/join</a>.
+Packages: {% for p in packages %}{{ p.name }} ${{ p.price }}/mo ({{ p.clips }} clips){{ ', ' if not loop.last }}{% endfor %}.</p>
+<div class="card table-wrap">
+<table>
+  <tr><th>When</th><th>Name</th><th>Channel</th><th>Email</th><th>Avg viewers</th><th>Package</th><th>Message</th><th>Status</th></tr>
+  {% for l in leads %}
+  <tr><td class="small">{{ l.created_at[:16] }}</td><td>{{ l.name }}</td>
+    <td class="small">{% if l.channel_url %}<a href="{{ l.channel_url if l.channel_url.startswith('http') else 'https://' ~ l.channel_url }}" target="_blank" rel="noopener">{{ l.channel_url }}</a>{% endif %}</td>
+    <td class="small">{{ l.email }}</td><td>{{ l.avg_viewers or '' }}</td><td>{{ l.package or '' }}</td><td class="small">{{ l.message or '' }}</td>
+    <td><form method="post" action="/leads/{{ l.id }}" class="row"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <select name="status" onchange="this.form.submit()">{% for s in ['new','contacted','trial','client','lost'] %}<option {{ 'selected' if l.status==s }}>{{ s }}</option>{% endfor %}</select></form></td></tr>
+  {% else %}<tr><td colspan="8" class="muted">No leads yet.</td></tr>{% endfor %}
+</table>
+</div>
+<div class="card" style="margin-top:14px">
+  <h2>Turning a lead into a client</h2>
+  <ol class="small">
+    <li>Reply with 3 free sample clips: have them sign up at <code>/p/join</code> (records permission), then upload or import one VOD under Sources.</li>
+    <li>When they pay (Stripe payment link or invoice), mark the streamer as <b>Paying client</b>: they get a private delivery page with unbranded clips.</li>
+    <li>Log the payment under Metrics → Revenue so cost per clip and margin stay accurate.</li>
+  </ol>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "public_base.html" %}
+{% block title %}Removal request: {{ brand }}{% endblock %}
+{% block body %}
+<div class="hero"><h1>Request a removal</h1>
+<p class="muted">Want a clip taken down, or want us to stop clipping your channel? Tell us here. Scheduled posts for your channel stop as soon as you submit.</p></div>
+<form class="card" method="post" action="/p/remove">
+  <div style="position:absolute; left:-5000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  <div class="row"><div><label>Your name</label><input name="name" required></div><div><label>Email</label><input name="email" type="email" required></div></div>
+  <label>Your channel URL</label><input name="channel_url" placeholder="https://www.twitch.tv/yourname">
+  <label>Links to specific posts (one per line, or leave blank for "everything")</label><textarea name="urls" rows="4"></textarea>
+  <label>Reason (optional)</label><textarea name="reason" rows="3"></textarea>
+  <p><button class="primary">Send removal request</button></p>
+</form>
+{% endblock %}

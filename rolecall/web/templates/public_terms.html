@@ -1,0 +1,25 @@
+{% extends "public_base.html" %}
+{% block title %}Terms: {{ brand }}{% endblock %}
+{% block body %}
+<div class="card" style="margin-top:20px">
+<h1>Terms</h1>
+<p class="small muted">Version 2026-11-19</p>
+<h2>Permission from streamers</h2>
+<p>When you sign up on the <a href="/p/join">join page</a>, you confirm that you own or control the channels you list and the footage on them. You give {{ brand }} a non-exclusive, revocable permission to do whichever of these you ticked:</p>
+<ul>
+  <li>Edit your footage into short clips</li>
+  <li>Post those clips on {{ brand }}'s accounts on the platforms you chose</li>
+  <li>Earn platform revenue from them</li>
+</ul>
+<p>Every clip credits you in the format you give us. Any revenue share you choose is paid monthly, based on payouts that can be traced to your clips.</p>
+<h2>Withdrawing permission</h2>
+<p>You can withdraw permission at any time on the <a href="/p/remove">removal page</a>. Anything not yet posted is cancelled right away, and live posts come down within 24 hours of the request.</p>
+<h2>Content standards</h2>
+<p>We do not post clips that reveal real-world personal information or that contain hate speech. We also try not to post clips with licensed music. Some clips are reviewed by a person before they are posted.</p>
+<h2>Paid clipping service</h2>
+<p>Clients receive finished clips for their own channels on the schedule of their package, billed monthly, and can cancel anytime. Clients must hold the rights to the footage they send us.</p>
+<h2>Game content</h2>
+<p>{{ brand }} is not affiliated with or endorsed by Rockstar Games, Take-Two Interactive or any roleplay server. Game footage is used in line with the publisher's policies for user-created videos.</p>
+{% if contact %}<p>Contact: {{ contact }}</p>{% endif %}
+</div>
+{% endblock %}

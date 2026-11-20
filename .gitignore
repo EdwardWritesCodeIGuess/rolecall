@@ -1,0 +1,17 @@
+# Secrets and runtime data: never commit
+.env
+.env.*
+!.env.example
+data/
+n8n/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Local tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/settings.local.json
+.DS_Store

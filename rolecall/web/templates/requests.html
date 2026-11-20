@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Requests</h1>
+<div class="card table-wrap">
+  <h2>Removal requests</h2>
+  <table><tr><th>When</th><th>From</th><th>Channel</th><th>Matched streamer</th><th>URLs / reason</th><th>Done automatically</th><th>Status</th></tr>
+  {% for r in removals %}
+  <tr><td class="small">{{ r.created_at[:16] }}</td><td>{{ r.name }}<div class="small muted">{{ r.email }}</div></td><td class="small">{{ r.channel_url }}</td>
+    <td>{% if r.creator_id %}<a href="/creators/{{ r.creator_id }}">#{{ r.creator_id }}</a>{% else %}<span class="badge b-warn">no match</span>{% endif %}</td>
+    <td class="small"><pre>{{ r.urls }}</pre>{{ r.reason }}</td>
+    <td class="small">{{ (r.actions|fromjson)|join('; ') }}</td>
+    <td><span class="badge {{ 'b-warn' if r.status=='open' else 'b-ok' }}">{{ r.status }}</span>
+      {% if r.status == 'open' %}<form method="post" action="/removals/{{ r.id }}/done" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="small">Mark done</button></form>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="7" class="muted">None.</td></tr>{% endfor %}</table>
+  <p class="small muted">Scheduled posts are cancelled the moment a request arrives. Delete live posts in each app, revoke the permission on the streamer's page if they withdrew consent, then mark done.</p>
+</div>
+<div class="card table-wrap" style="margin-top:14px">
+  <h2>Streamer submissions</h2>
+  <table><tr><th>When</th><th>Streamer</th><th>Channel</th><th>Footage</th><th>Consent</th><th>Status</th></tr>
+  {% for s in subs %}{% set c = s.consent|fromjson %}
+  <tr><td class="small">{{ s.created_at[:16] }}</td><td><a href="/creators/{{ s.creator_id }}">{{ s.display_name or s.name }}</a><div class="small muted">{{ s.email }}</div></td>
+    <td class="small">{{ s.channel_url }}</td><td class="small">{{ s.footage_url or '' }}{{ ' (file uploaded)' if s.file_path }}</td>
+    <td class="small">{% for k in ['allow_edit','allow_repost','allow_monetize'] %}{{ k[6:] }} {{ '✓' if c[k] else '✗' }} {% endfor %}<br>signed: {{ c.signature }}</td>
+    <td><span class="badge">{{ s.status }}</span></td></tr>
+  {% else %}<tr><td colspan="6" class="muted">None.</td></tr>{% endfor %}</table>
+  <p class="small muted">Footage from a submission is ingested automatically once the streamer's permission is verified.</p>
+</div>
+{% endblock %}

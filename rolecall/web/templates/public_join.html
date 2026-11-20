@@ -1,0 +1,46 @@
+{% extends "public_base.html" %}
+{% block title %}Join {{ brand }} as a streamer{% endblock %}
+{% block body %}
+<div class="hero">
+  <h1>Get your best RP moments clipped</h1>
+  <p class="muted">{{ brand }} posts short, captioned clips of GTA roleplay streams on TikTok, Instagram Reels and YouTube Shorts. Every clip
+  credits you. We only use footage from streamers who sign up here, and you can stop at any time.</p>
+</div>
+<form class="card" method="post" action="/p/join" enctype="multipart/form-data">
+  <div style="position:absolute; left:-5000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  <div class="row">
+    <div><label>Streamer name *</label><input name="display_name" required maxlength="80"></div>
+    <div><label>Email *</label><input name="email" type="email" required></div>
+  </div>
+  <label>Main channel URL *</label><input name="channel_url" required placeholder="https://www.twitch.tv/yourname">
+  <label>Other channels we may clip from (one per line)</label><textarea name="other_channels" rows="2" placeholder="https://kick.com/yourname"></textarea>
+  <label>How should we credit you?</label><input name="credit_format" placeholder="twitch.tv/yourname">
+
+  <label>Where can we post your clips?</label>
+  <div class="row">{% for p in platforms %}<label class="cb"><input type="checkbox" name="p_{{ p }}" checked> {{ {'youtube':'YouTube Shorts','instagram':'Instagram Reels','tiktok':'TikTok'}[p] }}</label>{% endfor %}</div>
+
+  <label>What you allow</label>
+  <label class="cb"><input type="checkbox" name="allow_edit" checked> Edit your footage (cut, crop to vertical, add captions)</label>
+  <label class="cb"><input type="checkbox" name="allow_repost" checked> Post the edited clips on {{ brand }}'s accounts</label>
+  <label class="cb"><input type="checkbox" name="allow_monetize" checked> Earn platform revenue from those clips (ads / creator programs)</label>
+
+  <label>Revenue share</label>
+  <div class="row">
+    <label class="cb"><input type="radio" name="revenue_share" value="none" checked> No share: exposure + credit only</label>
+    <label class="cb"><input type="radio" name="revenue_share" value="pct"> Share of payouts from my clips: <input name="revenue_share_pct" type="number" min="0" max="100" step="1" placeholder="%" style="width:80px"></label>
+  </div>
+  <label>Anything else about terms?</label><input name="revenue_terms" maxlength="500">
+
+  <label>Footage (optional)</label>
+  <input name="footage_url" placeholder="Link to a VOD, highlight or clip on your channel">
+  <input type="file" name="file" accept="video/*" style="margin-top:6px">
+
+  <label class="cb" style="margin-top:12px"><input type="checkbox" name="want_service"> I'm also interested in the paid service (finished clips delivered to me for my own channels)</label>
+  <label class="cb"><input type="checkbox" name="agree" required> I own or control these channels and their footage. I grant {{ brand }} permission for the uses ticked above,
+    as described in the <a href="/p/terms" target="_blank">terms</a>. I can withdraw it at any time on the <a href="/p/remove" target="_blank">removal page</a>,
+    and anything not yet posted is cancelled right away.</label>
+  <label>Type your full name as your signature *</label><input name="signature" required maxlength="120">
+  <p><button class="primary">Grant permission</button></p>
+  <p class="small muted">Next you'll get a short code to put in your channel bio for a moment. That proves the channel is yours, so nobody can sign up on your behalf.</p>
+</form>
+{% endblock %}

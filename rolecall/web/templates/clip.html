@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Clip #{{ c.id }}: {{ c.title }}</h1>
+<div class="grid" style="grid-template-columns: minmax(260px, 340px) 1fr; align-items:start">
+  <div class="card clip">
+    <video src="/media/clip/{{ c.id }}" poster="/media/clip/{{ c.id }}?kind=thumb" controls playsinline></video>
+    <p class="small muted">{{ c.display_name }} · {{ c.fmt }} · {{ c.layout }} · {{ '%.1f'|format(c.duration or 0) }}s ·
+      render {{ c.render_seconds }}s · cost {{ '%.2f'|format(c.cost_cents or 0) }}¢</p>
+    {% if src %}<p class="small">Source #{{ src.id }}: {{ src.title }}{% if m %} @ {{ '%.1f'|format(m.start) }}-{{ '%.1f'|format(m.end) }}s{% endif %}
+      {% if src.is_demo %}<span class="badge b-bad">DEMO</span>{% endif %}</p>{% endif %}
+    {% if m %}<p class="small">Scores: hook {{ m.hook }}, context {{ m.context }}, payoff {{ m.payoff }}<br>
+      <span class="muted">{{ (m.reasons|fromjson)|join(', ') }}</span></p>{% endif %}
+    <form method="post" action="/clips/{{ c.id }}/rerender" class="row"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <select name="layout"><option value="blur">blur (full frame)</option><option value="split">split (facecam + game)</option>
+        <option value="crop">crop (track action)</option></select><button>Re-render</button></form>
+    {% if c.delivery_path %}<p><a class="btn" href="/media/clip/{{ c.id }}?kind=delivery">Client copy (unbranded)</a></p>{% endif %}
+  </div>
+  <div>
+    <div class="card">
+      <h2>Checks</h2>
+      {% for f in flags %}
+      <p><span class="badge {{ {'block':'b-bad','review':'b-warn','info':'b-info'}[f.severity] }}">{{ f.severity }}</span>
+         <b>{{ f.code }}</b>: {{ f.detail }}</p>
+      {% else %}<p class="muted">No flags: rights, PII, music and caption checks passed.</p>{% endfor %}
+      <p class="small muted">Status: <b>{{ c.review_status }}</b>. Blocking flags must be fixed at the source (permission record) before this can post.</p>
+    </div>
+    <form class="card" method="post" action="/clips/{{ c.id }}/approve" style="margin-top:14px">
+      <input type="hidden" name="csrf" value="{{ csrf() }}"><input type="hidden" name="next" value="/clips/{{ c.id }}">
+      <h2>Titles & captions <span class="small muted">written by {{ copy.writer }}</span></h2>
+      <label>YouTube title (max 100)</label><input name="youtube.title" maxlength="100" value="{{ copy.youtube.title }}">
+      <label>YouTube description</label><textarea name="youtube.description" rows="5">{{ copy.youtube.description }}</textarea>
+      <label>YouTube tags (comma separated)</label><input name="youtube.tags" value="{{ (copy.youtube.tags or [])|join(', ') }}">
+      <label>Instagram caption</label><textarea name="instagram.caption" rows="4">{{ copy.instagram.caption }}</textarea>
+      <label>TikTok caption</label><textarea id="ttcap" name="tiktok.caption" rows="3">{{ copy.tiktok.caption }}</textarea>
+      <p class="row" style="margin-top:12px">
+        <button class="primary">Save &amp; approve</button>
+      </p>
+    </form>
+    <form method="post" action="/clips/{{ c.id }}/reject" style="margin-top:8px"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <input type="hidden" name="next" value="/clips?status=needs_review"><button class="danger">Reject clip</button></form>
+    <div class="card" style="margin-top:14px">
+      <h2>Posts</h2>
+      <table><tr><th>Platform</th><th>Status</th><th>Link</th><th>Error</th></tr>
+      {% for p in posts %}<tr><td>{{ p.platform }}</td><td>{{ p.status }} ({{ p.attempts }})</td>
+        <td>{% if p.remote_url %}<a href="{{ p.remote_url }}" target="_blank" rel="noopener">open</a>{% endif %}</td>
+        <td class="small">{{ p.last_error or '' }}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted">Not queued yet.</td></tr>{% endfor %}</table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "public_base.html" %}
+{% block title %}{{ brand }}: GTA RP clipping for streamers{% endblock %}
+{% block body %}
+<div class="hero">
+  <h1>Your RP, cut into clips people finish watching.</h1>
+  <p class="muted">We watch your GTA RP VODs, find the moments that land on their own (a strong opening, enough context, a payoff), and send back
+  vertical clips with captions and titles written for TikTok, Reels and Shorts. You post them on your own channels.</p>
+</div>
+<div class="grid g3">
+  {% for p in packages %}
+  <div class="card">
+    <h2>{{ p.name }}</h2>
+    <div class="price">${{ p.price }}<span class="small muted">/month</span></div>
+    <p>{{ p.blurb }}</p>
+    <p class="small muted">{{ p.clips }} clips · about ${{ '%.2f'|format(p.price / p.clips) }} per clip · cancel anytime</p>
+  </div>
+  {% endfor %}
+</div>
+<div class="card" style="margin-top:14px">
+  <h2>What you get with every clip</h2>
+  <ul>
+    <li>9:16 reframe: facecam on top and gameplay below, or a tracked full-screen crop</li>
+    <li>Word-by-word captions that are easy to read over busy footage</li>
+    <li>Cleaned-up audio: leveled volume, less hiss, consistent loudness</li>
+    <li>A title and caption written for each platform, based on what actually happens in the clip</li>
+    <li>Checks for licensed music and personal info before anything is delivered</li>
+    <li>A private download page for all your clips</li>
+  </ul>
+</div>
+<form class="card" method="post" action="/p/pricing" style="margin-top:14px">
+  <div style="position:absolute; left:-5000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+  <h2>Get 3 free sample clips</h2>
+  <div class="row"><div><label>Name</label><input name="name" required></div><div><label>Email</label><input name="email" type="email" required></div></div>
+  <div class="row"><div><label>Channel URL</label><input name="channel_url" required></div>
+    <div><label>Average viewers</label><input name="avg_viewers" placeholder="e.g. 150"></div></div>
+  <label>Package</label><select name="package">{% for p in packages %}<option value="{{ p.id }}">{{ p.name }} (${{ p.price }}/mo)</option>{% endfor %}<option value="unsure">Not sure yet</option></select>
+  <label>Anything we should know?</label><textarea name="message" rows="3" placeholder="Character names, server, the kind of moments you want clipped"></textarea>
+  <p><button class="primary">Request samples</button></p>
+  <p class="small muted">We'll also ask you to <a href="/p/join">grant permission</a> so we can legally edit your footage.</p>
+</form>
+{% endblock %}

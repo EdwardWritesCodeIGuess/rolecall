@@ -1,0 +1,23 @@
+{% extends "public_base.html" %}
+{% block title %}Privacy policy: {{ brand }}{% endblock %}
+{% block body %}
+<div class="card" style="margin-top:20px">
+<h1>Privacy policy</h1>
+<p class="small muted">Last updated 19 November 2026</p>
+<p>{{ brand }} (@{{ handle }}) makes short clips of GTA roleplay streams with the permission of the streamers who appear in them. This page explains what we collect and why.</p>
+<h2>What we collect</h2>
+<ul>
+  <li><b>Streamers who sign up:</b> name, email, channel links, the permissions you grant, a typed signature, the IP address of the submission, and any footage you send or link. We keep this to prove we had permission and to credit you.</li>
+  <li><b>People who ask about the paid service:</b> name, email, channel link and your message.</li>
+  <li><b>Removal requests:</b> name, email and the links you send, kept so we can show the request was handled.</li>
+  <li><b>Our own social accounts:</b> access tokens for {{ brand }}'s own YouTube, Instagram and TikTok accounts, stored encrypted, plus view and follower counts for our posts. We do not use these tools to access anyone else's accounts.</li>
+</ul>
+<h2>How we use it</h2>
+<p>We use this information to edit and publish clips, credit streamers, deliver clips to paying clients, handle removals, and measure how our posts perform. We do not sell personal data, and we do not use it for advertising.</p>
+<h2>Where it's stored</h2>
+<p>Everything is stored on a server we operate. It is shared only with the platforms we publish to (YouTube, Instagram, TikTok), and only in the published content itself.</p>
+<h2>Your choices</h2>
+<p>You can withdraw permission or ask us to delete your data at any time on the <a href="/p/remove">removal page</a>{% if contact %} or by emailing {{ contact }}{% endif %}.
+Scheduled posts stop as soon as you submit. Live posts and stored data are deleted within 30 days, except the record that you granted and withdrew permission.</p>
+</div>
+{% endblock %}

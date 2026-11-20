@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>{{ c.display_name }}</h1>
+<div class="grid g2">
+  <form class="card" method="post" action="/creators/{{ c.id }}">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <h2>Profile & editing</h2>
+    <label>Display name</label><input name="display_name" value="{{ c.display_name }}" required>
+    <label>Main channel URL</label><input name="primary_url" value="{{ c.primary_url or '' }}">
+    <label>Contact email</label><input name="contact_email" value="{{ c.contact_email or '' }}">
+    <label>Credit text (overridden by the permission's credit format)</label><input name="credit_text" value="{{ c.credit_text or '' }}">
+    <label>Layout</label>
+    <select name="layout">{% for l in ['auto','blur','split','crop'] %}<option {{ 'selected' if c.layout==l }}>{{ l }}</option>{% endfor %}</select>
+    <p class="small muted">auto = split when a facecam box is set, otherwise blur (full frame on a blurred fill).</p>
+    <label class="cb"><input type="checkbox" name="fc_enabled" id="fc_en" {{ 'checked' if facecam }}> Facecam box (for split layout)</label>
+    <div class="row">
+      {% for k in ['x','y','w','h'] %}<div><label>{{ k }} %</label><input type="number" step="0.1" min="0" max="100" name="fc_{{ k }}" id="fc_{{ k }}"
+        value="{{ '%.1f'|format((facecam[k] if facecam else {'x':0.72,'y':0.03,'w':0.25,'h':0.25}[k]) * 100) }}"></div>{% endfor %}
+    </div>
+    {% if has_frame %}
+    <div class="fc-wrap" style="margin-top:8px"><img src="/media/frame/{{ c.id }}" alt="frame"><div class="fc-box" id="fcbox"></div></div>
+    {% else %}<p class="small muted">A frame preview appears after their first footage is ingested.</p>{% endif %}
+    <label>Auto-ingest channel (optional)</label><input name="watch_url" value="{{ c.watch_url or '' }}" placeholder="https://www.twitch.tv/name/videos?filter=archives">
+    <p class="small muted">Checked every 6 hours, one new VOD per run, only while the permission is active and covers this channel.</p>
+    <label class="cb"><input type="checkbox" name="auto_approve" {{ 'checked' if c.auto_approve }}> Trusted: clips with no flags publish without review</label>
+    <label class="cb"><input type="checkbox" name="is_client" {{ 'checked' if c.is_client }}> Paying client: render unbranded copies for their own channels</label>
+    {% if c.is_client and c.delivery_token %}<p class="small">Delivery page: <a href="/d/{{ c.delivery_token }}" target="_blank">{{ base_url }}/d/{{ c.delivery_token }}</a></p>{% endif %}
+    <label>Notes</label><textarea name="notes" rows="2">{{ c.notes or '' }}</textarea>
+    <p><button class="primary">Save</button></p>
+  </form>
+
+  <div>
+    <div class="card">
+      <h2>Permission records</h2>
+      {% if c.verify_code %}<p class="small">Ownership code: <b>{{ c.verify_code }}</b> (checked on {{ c.primary_url }} automatically).</p>{% endif %}
+      {% for p in perms %}
+      <div style="border-top:1px solid var(--line); padding:8px 0">
+        <span class="badge {{ 'b-ok' if p.status=='active' and p.verified else 'b-warn' }}">{{ p.status }}{{ ', verified' if p.verified else ', unverified' }}</span>
+        <div class="small">Channels: {{ (p.source_channels|fromjson)|join(', ') }}</div>
+        <div class="small">Platforms: {{ (p.platforms|fromjson)|join(', ') or 'none' }} · edit {{ '✓' if p.allow_edit else '✗' }} · repost {{ '✓' if p.allow_repost else '✗' }} · monetize {{ '✓' if p.allow_monetize else '✗' }}</div>
+        <div class="small">Credit: {{ p.credit_format or 'default' }} · revenue share {{ p.revenue_share_pct }}% {{ p.revenue_terms or '' }}</div>
+        <div class="small muted">Granted by {{ p.granted_by or '?' }} {{ (p.granted_at or '')[:10] }} · evidence: {{ p.evidence or '-' }}{% if p.expires_at %} · expires {{ p.expires_at[:10] }}{% endif %}</div>
+        <div class="row" style="margin-top:6px">
+          {% if not p.verified %}<form method="post" action="/permissions/{{ p.id }}/verify" class="inline" data-confirm="Confirm you verified this person controls the channel(s)?"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="primary">Mark verified</button></form>{% endif %}
+          {% if p.status != 'revoked' %}<form method="post" action="/permissions/{{ p.id }}/revoke" class="inline" data-confirm="Revoke and cancel every pending post for this streamer?"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="danger">Revoke</button></form>{% endif %}
+        </div>
+      </div>
+      {% else %}<p class="muted">No permission yet: nothing from this streamer can be ingested or posted.</p>{% endfor %}
+    </div>
+    <form class="card" method="post" action="/creators/{{ c.id }}/permissions" style="margin-top:14px">
+      <input type="hidden" name="csrf" value="{{ csrf() }}">
+      <h2>Record a permission</h2>
+      <label>Channels covered (one per line)</label><textarea name="source_channels" rows="2">{{ c.primary_url or '' }}</textarea>
+      <label>Platforms</label><div class="row">{% for p in ['youtube','instagram','tiktok'] %}<label class="cb"><input type="checkbox" name="p_{{ p }}" checked> {{ p }}</label>{% endfor %}</div>
+      <label>Uses</label><div class="row"><label class="cb"><input type="checkbox" name="allow_edit" checked> edit</label>
+        <label class="cb"><input type="checkbox" name="allow_repost" checked> repost</label><label class="cb"><input type="checkbox" name="allow_monetize" checked> monetize</label></div>
+      <div class="row"><div><label>Credit format</label><input name="credit_format" placeholder="twitch.tv/name"></div>
+        <div><label>Revenue share %</label><input type="number" step="0.5" min="0" max="100" name="revenue_share_pct" value="0"></div></div>
+      <label>Revenue terms</label><input name="revenue_terms" placeholder="e.g. 20% of channel payouts attributable to their clips, paid monthly">
+      <div class="row"><div><label>Granted by</label><input name="granted_by"></div><div><label>Expires (optional)</label><input type="date" name="expires_at"></div></div>
+      <label>Evidence</label><input name="evidence" placeholder="email thread / Discord DM link / signed PDF path">
+      <label class="cb"><input type="checkbox" name="verified"> I confirmed the grantor controls these channels</label>
+      <p><button class="primary">Save permission</button></p>
+    </form>
+  </div>
+</div>
+<script>
+const box = document.getElementById('fcbox');
+function upd(){ if(!box) return; const v = k => parseFloat(document.getElementById('fc_'+k).value)||0;
+  box.style.display = document.getElementById('fc_en').checked ? 'block' : 'none';
+  box.style.left=v('x')+'%'; box.style.top=v('y')+'%'; box.style.width=v('w')+'%'; box.style.height=v('h')+'%'; }
+['x','y','w','h','en'].forEach(k => document.getElementById('fc_'+k).addEventListener('input', upd)); upd();
+</script>
+{% endblock %}

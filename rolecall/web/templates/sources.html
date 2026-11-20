@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Sources</h1>
+<div class="grid g3">
+  <form class="card" method="post" action="/sources/upload" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <h2>Upload footage</h2>
+    <label>Streamer</label><select name="creator_id" required>{% for c in creators %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}</select>
+    <label>Video file (VOD or clip)</label><input type="file" name="file" accept="video/*" required>
+    <p><button class="primary">Upload &amp; process</button></p>
+    <p class="small muted">Only streamers with an active, verified permission can be ingested.</p>
+  </form>
+  <form class="card" method="post" action="/sources/url">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <h2>Import from URL</h2>
+    <label>Streamer</label><select name="creator_id" required>{% for c in creators %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}</select>
+    <label>VOD / clip URL</label><input name="url" placeholder="https://www.twitch.tv/videos/..." required>
+    <p><button class="primary">Import</button></p>
+    <p class="small muted">The URL must belong to a channel listed in the streamer's permission. VODs over 20 minutes download audio first; only the chosen moments are fetched as video.</p>
+  </form>
+  <div class="card">
+    <h2>Drop folder</h2>
+    <p class="small">Anything saved to <code>{{ inbox }}/&lt;streamer-slug&gt;/</code> is ingested automatically (works with Syncthing, an SMB share, or Dropbox sync).</p>
+    <h2 style="margin-top:14px">Demo</h2>
+    <form method="post" action="/demo"><input type="hidden" name="csrf" value="{{ csrf() }}">
+      <button>Generate labeled demo footage</button></form>
+    <p class="small muted">Synthetic scene with a DEMO banner. Demo clips can never be published.</p>
+  </div>
+</div>
+<div class="card table-wrap" style="margin-top:14px">
+<table>
+  <tr><th>#</th><th>Title</th><th>Streamer</th><th>Kind</th><th>Length</th><th>Status</th><th>Clips</th><th></th></tr>
+  {% for s in sources %}
+  <tr><td>{{ s.id }}</td><td>{{ s.title }} {% if s.is_demo %}<span class="badge b-bad">DEMO</span>{% endif %}
+      {% if s.error %}<div class="small muted">{{ s.error[:300] }}</div>{% endif %}</td>
+    <td>{{ s.display_name }}</td><td>{{ s.kind }}{{ ' (audio first)' if s.audio_only }}</td>
+    <td>{{ '%d:%02d'|format((s.duration or 0)//60, (s.duration or 0)%60) }}</td>
+    <td><span class="badge {{ {'done':'b-ok','error':'b-bad','processing':'b-info'}.get(s.status,'') }}">{{ s.status }}</span></td>
+    <td><a href="/clips?creator={{ s.creator_id }}&status=">{{ s.nclips }}</a></td>
+    <td><form method="post" action="/sources/{{ s.id }}/reprocess" class="inline"><input type="hidden" name="csrf" value="{{ csrf() }}"><button class="small">Reprocess</button></form></td></tr>
+  {% else %}<tr><td colspan="8" class="muted">No footage yet.</td></tr>{% endfor %}
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Streamers</h1>
+<div class="grid g2">
+  <div class="card table-wrap">
+    <table>
+      <tr><th>Streamer</th><th>Permission</th><th>Platforms</th><th>Clips</th><th>Client</th></tr>
+      {% for c in creators %}
+      <tr><td><a href="/creators/{{ c.id }}"><b>{{ c.display_name }}</b></a><div class="small muted">{{ c.primary_url or '' }}</div></td>
+        <td>{% if c.pstatus %}<span class="badge {{ 'b-ok' if c.pstatus=='active' and c.verified else 'b-warn' }}">{{ c.pstatus }}{{ '' if c.verified else ', unverified' }}</span>
+            {% if not c.allow_monetize and c.pstatus %}<span class="badge b-bad">no monetize</span>{% endif %}
+            {% else %}<span class="badge b-bad">none</span>{% endif %}</td>
+        <td class="small">{{ (c.platforms|fromjson)|join(', ') }}</td><td>{{ c.nclips }}</td>
+        <td>{{ 'yes' if c.is_client else '' }}</td></tr>
+      {% else %}<tr><td colspan="5" class="muted">No streamers yet. Share <code>/p/join</code> or add one here.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <form class="card" method="post" action="/creators">
+    <input type="hidden" name="csrf" value="{{ csrf() }}">
+    <h2>Add a streamer</h2>
+    <label>Display name</label><input name="display_name" required>
+    <label>Main channel URL</label><input name="primary_url" placeholder="https://www.twitch.tv/name">
+    <label>Contact email</label><input name="contact_email" type="email">
+    <label>Credit text on clips</label><input name="credit_text" placeholder="twitch.tv/name">
+    <p><button class="primary">Add</button></p>
+    <p class="small muted">Streamers can also sign themselves up at <a href="/p/join" target="_blank">/p/join</a>: that records their permission and verifies channel ownership.</p>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Event log</h1>
+<div class="card table-wrap">
+<table><tr><th>Time (UTC)</th><th>Level</th><th>Kind</th><th>Ref</th><th>Message</th></tr>
+{% for e in events %}
+<tr><td class="small" style="white-space:nowrap">{{ e.ts }}</td>
+  <td><span class="badge {{ {'error':'b-bad','warn':'b-warn','action':'b-info'}.get(e.level,'') }}">{{ e.level }}</span></td>
+  <td>{{ e.kind }}</td>
+  <td class="small">{% if e.ref_type == 'clip' %}<a href="/clips/{{ e.ref_id }}">clip {{ e.ref_id }}</a>{% elif e.ref_type == 'creator' %}<a href="/creators/{{ e.ref_id }}">streamer {{ e.ref_id }}</a>{% elif e.ref_type %}{{ e.ref_type }} {{ e.ref_id }}{% endif %}</td>
+  <td class="small">{{ e.message }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Empty.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "public_base.html" %}
+{% block body %}
+<div class="card hero" style="margin-top:20px">
+  <h1>{{ title }}</h1>
+  {% if code %}<p class="code">{{ code }}</p>{% endif %}
+  <p>{{ message }}</p>
+</div>
+{% endblock %}

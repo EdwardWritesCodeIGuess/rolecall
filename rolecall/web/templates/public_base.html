@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ brand }}: GTA RP clips{% endblock %}</title>
+<meta name="description" content="{{ brand }} turns GTA roleplay streams into short-form clips, with the streamer's permission.">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="public">
+<header class="top">
+  <a class="logo" href="/p/pricing"><span>RC</span>{{ brand }}</a>
+  <nav>
+    <a href="/p/pricing">Clipping service</a>
+    <a href="/p/join">Join as a streamer</a>
+    <a href="/p/remove">Removal requests</a>
+  </nav>
+</header>
+<main>{% block body %}{% endblock %}</main>
+<footer style="text-align:center; padding:20px" class="small muted">
+  {{ brand }} (@{{ handle }}) · <a href="/p/privacy">Privacy</a> · <a href="/p/terms">Terms</a> ·
+  Not affiliated with Rockstar Games, Take-Two Interactive or any RP server.
+</footer>
+</body>
+</html>
